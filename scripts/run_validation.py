@@ -11,6 +11,10 @@ Outputs: results/validation/<config>/<model>/{summary.json,predictions.csv}
 
 Preprocessing: Resize((224,224)) with each model's own mean/std — equivalent to Doshi's pipeline
 (fixed Resize((224,224)); timm/SigLIP wrappers re-normalized with model stats internally).
+
+Numerics: TF32 is disabled by default so GPU results match fp32/CPU (and the paper) exactly; with
+TF32 on, images with near-zero decision margin can flip (e.g. ResNet-50 cat/turtle 022, |dm| = 0.004).
+Pass --tf32 to allow it.
 """
 
 from __future__ import annotations
@@ -105,7 +109,12 @@ def main():
     ap.add_argument("--batch-size", type=int, default=64)
     ap.add_argument("--num-workers", type=int, default=8)
     ap.add_argument("--force", action="store_true", help="recompute even if results exist")
+    ap.add_argument("--tf32", action="store_true", help="allow TF32 matmul/conv on Ampere+ GPUs (default: strict fp32)")
     args = ap.parse_args()
+
+    torch.backends.cuda.matmul.allow_tf32 = args.tf32
+    torch.backends.cudnn.allow_tf32 = args.tf32
+    torch.backends.cudnn.benchmark = False
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"device: {device} | torch {torch.__version__}")

@@ -245,7 +245,10 @@ Design the hook interface now so both drop in later; decide default + report bot
 **Status (2026-09-02)**
 - [x] steps 1–3: mapping/scoring/legacy/data/eval/zero_shot, tests (9 pass), reference csvs, run_validation.py
 - [x] CPU smoke: torchvision AlexNet pairs-72 → css .0556 / acc .3125 / legacy bias .559 == Doshi exactly
-- [ ] step 4: George runs `scripts/run_validation.py --configs pairs-72 pairs-1440` on the GPU box
+- [x] step 4, phase-1 GPU run (2026-09-02): alexnet, resnet50, vit_b_16, timm vit-augreg, beitv2, dinov2-lc all
+  match Doshi exactly on pairs-1440 and on pairs-72 except resnet50 (−1 pair: image 022 cat/turtle, |dm|=0.004,
+  TF32 flip; CPU fp32 matches exactly → validation script now defaults to strict fp32). SigLIP2 build failed
+  (open_clip needs `transformers` for the SigLIP2 tokenizer) → added to `[validation]` extra; re-run pending.
 - [ ] steps 5–7
 
 **Steps (coding order)**
