@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "visionlab-evals-anagrams"
+dynamic = ["version"]
+description = "Object-Anagram / Configural Shape Score eval (Doshi et al., NeurIPS 2025): dataset builder + lightweight eval runner"
+readme = "README.md"
+authors = [
+    {name = "George Alvarez", email = "grez72@gmail.com"}
+]
+requires-python = ">=3.10,<3.13"
+
+dependencies = [
+    # Torch stack (eval runner)
+    "torch>=2.1.0",
+    "torchvision>=0.16.0",
+
+    # Dataset (HuggingFace)
+    "datasets>=3.0",
+    "huggingface_hub",
+
+    # Utilities
+    "pillow",
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+# lab members: load models via visionlab.models
+models = ["visionlab-models@git+https://github.com/harvard-visionlab/models.git"]
+# phase-1 validation sweep (timm heads, SigLIP zero-shot via open_clip)
+validation = ["timm>=1.0", "open_clip_torch>=2.24"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+    "ipykernel",
+    "nbstripout",
+    "jupytext",
+    "ipywidgets",
+    "jupyterlab",
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu126", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { index = "pytorch-cpu", marker = "sys_platform != 'linux' or platform_machine != 'x86_64'" },
+]
+torchvision = [
+    { index = "pytorch-cu126", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { index = "pytorch-cpu", marker = "sys_platform != 'linux' or platform_machine != 'x86_64'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.setuptools.dynamic]
+version = {attr = "anagrams.version.__version__"}
+
+[tool.setuptools]
+# Map the import path 'visionlab.evals.anagrams' to the source folder 'anagrams'
+package-dir = { "visionlab.evals.anagrams" = "anagrams" }
+packages = ["visionlab.evals.anagrams"]
+
+[tool.setuptools.package-data]
+"visionlab.evals.anagrams" = ["*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
