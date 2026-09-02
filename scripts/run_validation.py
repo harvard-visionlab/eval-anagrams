@@ -12,6 +12,10 @@ Outputs: results/validation/<config>/<model>/{summary.json,predictions.csv}
 Preprocessing: Resize((224,224)) with each model's own mean/std — equivalent to Doshi's pipeline
 (fixed Resize((224,224)); timm/SigLIP wrappers re-normalized with model stats internally).
 
+SigLIP: by default the native 256px image goes straight into open_clip's preprocess. Doshi's wrapper
+resized 256->224 (bilinear), quantized to uint8, then open_clip upsampled to 256 (bicubic); that blur
+costs ~0.6% of images (-1 pair on pairs-72, -17 on pairs-1440). --paper-pipeline reproduces it exactly.
+
 Numerics: TF32 is disabled by default so GPU results match fp32/CPU (and the paper) exactly; with
 TF32 on, images with near-zero decision margin can flip (e.g. ResNet-50 cat/turtle 022, |dm| = 0.004).
 Pass --tf32 to allow it.
@@ -72,12 +76,20 @@ def build_dinov2_lc(hub_name):
     return _build
 
 
+PAPER_PIPELINE = False  # set by --paper-pipeline
+
+
 def build_siglip(open_clip_name):
     def _build():
         device = "cuda" if torch.cuda.is_available() else "cpu"
         # 1000 ImageNet names, bare prompt -> standard 1000->9 mapping (as in Doshi et al.)
         classifier, preprocess = ZeroShotClassifier.from_open_clip(open_clip_name, device=device)
-        return classifier, preprocess  # open_clip's own preprocess (resize to native res + its stats)
+        if PAPER_PIPELINE:
+            # Doshi's SigLIP wrapper received Resize((224,224))-bilinear ImageNet-normalized tensors,
+            # denormalized them to uint8 PIL, then re-ran open_clip's preprocess (256 bicubic).
+            # This double resize reproduces the paper's SigLIP numbers exactly (css .8194 on pairs-72).
+            preprocess = T.Compose([T.Resize((224, 224)), T.ToTensor(), T.ToPILImage(), preprocess])
+        return classifier, preprocess  # default: native 256 straight into open_clip's own preprocess
     return _build
 
 
@@ -110,7 +122,12 @@ def main():
     ap.add_argument("--num-workers", type=int, default=8)
     ap.add_argument("--force", action="store_true", help="recompute even if results exist")
     ap.add_argument("--tf32", action="store_true", help="allow TF32 matmul/conv on Ampere+ GPUs (default: strict fp32)")
+    ap.add_argument("--paper-pipeline", action="store_true",
+                    help="emulate Doshi's SigLIP double-resize preprocessing (parity check; not the recommended default)")
     args = ap.parse_args()
+
+    global PAPER_PIPELINE
+    PAPER_PIPELINE = args.paper_pipeline
 
     torch.backends.cuda.matmul.allow_tf32 = args.tf32
     torch.backends.cudnn.allow_tf32 = args.tf32

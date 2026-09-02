@@ -248,7 +248,11 @@ Design the hook interface now so both drop in later; decide default + report bot
 - [x] step 4, phase-1 GPU run (2026-09-02): alexnet, resnet50, vit_b_16, timm vit-augreg, beitv2, dinov2-lc all
   match Doshi exactly on pairs-1440 and on pairs-72 except resnet50 (−1 pair: image 022 cat/turtle, |dm|=0.004,
   TF32 flip; CPU fp32 matches exactly → validation script now defaults to strict fp32). SigLIP2 build failed
-  (open_clip needs `transformers` for the SigLIP2 tokenizer) → added to `[validation]` extra; re-run pending.
+  (open_clip needs `transformers` for the SigLIP2 tokenizer) → added to `[validation]` extra.
+- [x] re-run: resnet50 exact under strict fp32. SigLIP2 css .806/.861 vs paper .819/.873 (−1 / −17 pairs).
+  Root cause verified on CPU: Doshi's wrapper double-resized (256→224 bilinear→uint8→256 bicubic); emulating
+  that reproduces .8194/.9097 exactly. Our default (native 256 → open_clip preprocess) is the cleaner pipeline;
+  `--paper-pipeline` flag reproduces the paper. DECISION for George: which is canonical for stored results.
 - [ ] steps 5–7
 
 **Steps (coding order)**
