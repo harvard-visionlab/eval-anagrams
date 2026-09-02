@@ -121,7 +121,8 @@ def main():
     ap.add_argument("--batch-size", type=int, default=64)
     ap.add_argument("--num-workers", type=int, default=8)
     ap.add_argument("--force", action="store_true", help="recompute even if results exist")
-    ap.add_argument("--tf32", action="store_true", help="allow TF32 matmul/conv on Ampere+ GPUs (default: strict fp32)")
+    ap.add_argument("--tf32", action="store_true",
+                    help="allow TF32 matmul/conv on Ampere+ GPUs (default: strict fp32)")
     ap.add_argument("--paper-pipeline", action="store_true",
                     help="emulate Doshi's SigLIP double-resize preprocessing (parity check; not the recommended default)")
     args = ap.parse_args()
