@@ -124,7 +124,7 @@ def main():
     ap.add_argument("--tf32", action="store_true",
                     help="allow TF32 matmul/conv on Ampere+ GPUs (default: strict fp32)")
     ap.add_argument("--paper-pipeline", action="store_true",
-                    help="emulate Doshi's SigLIP double-resize preprocessing (parity check; not the recommended default)")
+                    help="emulate Doshi's SigLIP double-resize preprocessing (parity check, not the default)")
     args = ap.parse_args()
 
     global PAPER_PIPELINE
