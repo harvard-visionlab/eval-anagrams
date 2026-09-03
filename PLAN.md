@@ -240,6 +240,9 @@ Design the hook interface now so both drop in later; decide default + report bot
 - Phase 2 — full Doshi replication: needs (a) models repo with the Doshi2025 collection and
   (b) `store.py`. `run_doshi_sweep.py` over 86 models × {pairs-72, pairs-1440}; compare to
   `reference/*.csv`: per-model Δ, Pearson r (paper: r=.99 between sets), flag |Δ| > 2 pairs.
+  EXPECTED, not bugs: (a) every zero-shot SigLIP/CLIP model will sit ~0.6% of images below the paper
+  (their wrapper's 256→224→uint8→256 double resize; see README "Known differences"); report both
+  default and `--paper-pipeline` for those models. (b) ±1 image on convnets from TF32 → run strict fp32.
 - Phase 3 — SSL extension (above).
 
 **Status (2026-09-02)**
@@ -253,7 +256,8 @@ Design the hook interface now so both drop in later; decide default + report bot
   Root cause verified on CPU: Doshi's wrapper double-resized (256→224 bilinear→uint8→256 bicubic); emulating
   that reproduces .8194/.9097 exactly. Our default (native 256 → open_clip preprocess) is the cleaner pipeline;
   `--paper-pipeline` flag reproduces the paper. DECISION for George: which is canonical for stored results.
-- [ ] steps 5–7
+- [x] step 5: plot.py (plot_css, plot_acc_vs_css, plot_confusion, plot_margins, show_pairs), notebooks/demo_eval, README
+- [ ] steps 6–7
 
 **Steps (coding order)**
 1. `mapping.py`, `scoring.py` (+ margins), `legacy.py`, tests on synthetic predictions.

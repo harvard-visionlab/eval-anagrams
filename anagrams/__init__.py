@@ -12,6 +12,7 @@ from .data import CONFIGS, DEFAULT_CONFIG, REPO_ID, AnagramDataset, load_anagram
 from .eval import anagram_eval, predict_scores
 from .legacy import legacy_metrics
 from .mapping import CLASSES, IMAGENET_CLASS_MAP, default_to_anagram_scores, imagenet_to_anagram_scores
+from .plot import HUMAN_ACC, HUMAN_CSS, plot_acc_vs_css, plot_confusion, plot_css, plot_margins, show_pairs
 from .scoring import (
     CHANCE_ACC,
     CHANCE_CSS,
@@ -45,6 +46,13 @@ __all__ = [
     "IMAGENET_CLASS_MAP",
     "imagenet_to_anagram_scores",
     "default_to_anagram_scores",
+    "plot_css",
+    "plot_acc_vs_css",
+    "plot_confusion",
+    "plot_margins",
+    "show_pairs",
+    "HUMAN_CSS",
+    "HUMAN_ACC",
     "ZeroShotClassifier",
     "imagenet_class_names",
     "CHANCE_ACC",

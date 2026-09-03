@@ -84,6 +84,22 @@ uv sync --dev --extra validation
 uv run python scripts/run_validation.py --configs pairs-72 pairs-1440
 ```
 
+## Known differences from the paper
+
+Validated against the authors' per-model csv (`reference/`): AlexNet, ResNet-50, ViT-B/16,
+timm ViT-B/16-augreg, BEiTv2-B/16, DINOv2-B/14-lc match exactly on both sets when run in strict
+fp32. Two things to expect when reproducing the full sweep:
+
+- **Zero-shot (SigLIP/CLIP) models score slightly differently.** The paper's SigLIP wrapper
+  resized 256→224 (bilinear), quantized to uint8, then open_clip upsampled to 256 (bicubic).
+  We feed the native 256² image to the model's own preprocess. That blur costs ~0.6% of images
+  (SigLIP2-L/16: CSS 0.806 vs 0.819 on 72 pairs, 0.861 vs 0.873 on 1440). Expect the same offset
+  for every zero-shot model in the Doshi2025 suite. `scripts/run_validation.py --paper-pipeline`
+  reproduces the paper's numbers exactly if parity is needed.
+- **TF32 can flip near-zero-margin images.** ResNet-50 has one image (cat/turtle, |dm| = 0.004)
+  that flips between fp32 and TF32 kernels. Run with TF32 disabled for reproducible numbers
+  (the validation script does this by default).
+
 ## Development
 
 ```bash
