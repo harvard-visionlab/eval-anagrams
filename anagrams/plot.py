@@ -212,7 +212,7 @@ def show_pairs(
         raise ValueError(f"no pairs match select={select!r}")
 
     if ds is None:
-        ds = load_anagrams(results.summary.get("config", DEFAULT_CONFIG))
+        ds = load_anagrams(results.summary.get("dataset", DEFAULT_CONFIG))
     index_of = {f: i for i, f in enumerate(ds["filename"])}
     preds = results.predictions.set_index("filename")
 

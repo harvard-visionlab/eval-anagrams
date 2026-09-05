@@ -54,11 +54,11 @@ def test_predictions_margins_and_pairs():
 
 def test_summary_and_legacy_metrics():
     pred = build_predictions(_meta(), _scores())
-    res = score_predictions(pred, model_name="toy", config="pairs-72")
+    res = score_predictions(pred, model_name="toy", dataset="pairs-72")
     s = res.summary
     assert s["css"] == 0.5 and s["acc"] == 0.75 and s["foil_rate"] == 0.25
     assert s["n_images"] == 4 and s["n_pairs"] == 2 and s["chance_css"] == CHANCE_CSS
-    assert s["model_name"] == "toy" and s["config"] == "pairs-72" and "eval_version" in s
+    assert s["model_name"] == "toy" and s["dataset"] == "pairs-72" and "eval_version" in s
     assert 0 <= s["css_ci_low"] <= s["css"] <= s["css_ci_high"] <= 1
     assert res.confusion.loc["bunny", "bear"] == 1 and res.confusion.to_numpy().sum() == 4
 
@@ -76,7 +76,7 @@ def test_bootstrap_is_seeded_and_bounded():
 
 
 def test_save_load_roundtrip(tmp_path):
-    res = score_predictions(build_predictions(_meta(), _scores()), model_name="toy", config="pairs-72")
+    res = score_predictions(build_predictions(_meta(), _scores()), model_name="toy", dataset="pairs-72")
     res.save(tmp_path)
     back = AnagramResults.load(tmp_path)
     assert back.summary == res.summary

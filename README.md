@@ -84,6 +84,44 @@ uv sync --dev --extra validation
 uv run python scripts/run_validation.py --configs pairs-72 pairs-1440
 ```
 
+## Results store (lab)
+
+Results live in `s3://visionlab-evals` as a Hive-partitioned tree, mirrored at
+`~/.cache/visionlab/evals` (`VISIONLAB_EVALS_CACHE`, `VISIONLAB_EVALS_BUCKET` to override):
+
+```
+eval=anagrams/version=0.1.0/dataset=pairs-72/model=pytorch__alexnet__7be5be79/results.parquet   # per image
+eval=anagrams/version=0.1.0/dataset=pairs-72/model=pytorch__alexnet__7be5be79/summary.json      # metrics + provenance
+```
+
+Model identity is `source/arch:weights_id` with `weights_id` = sha256[:8] of the weights file
+(the `visionlab.models` convention); aliases like `DEFAULT` are resolved before storing. Both files
+carry `eval_name, eval_version, dataset, model_id, model_spec, model_source, model_arch, weights_id`,
+so they stay self-describing when copied out of the tree. Objects are private (lab AWS credentials).
+
+```python
+from visionlab.evals.anagrams import ResultsStore, ModelIdentity
+
+store = ResultsStore()
+store.run("pytorch/alexnet:DEFAULT", dataset="pairs-72")        # via visionlab.models; skips if stored
+store.run(model, transform, dataset="pairs-72",                  # any model, explicit identity
+          identity=ModelIdentity.from_torchvision(AlexNet_Weights.IMAGENET1K_V1))
+store.query(dataset="pairs-72")                                  # DataFrame: one row per stored model
+store.load("pairs-72", "pytorch/alexnet:7be5be79")               # full AnagramResults
+```
+
+Any Hive-aware tool reads the tree directly; e.g. DuckDB:
+
+```sql
+INSTALL httpfs; LOAD httpfs; CREATE SECRET (TYPE s3, PROVIDER credential_chain);
+SELECT dataset, model_id, avg(correct::INT) acc, avg(decision_margin) dm
+FROM read_parquet('s3://visionlab-evals/eval=anagrams/version=0.1.0/*/*/results.parquet', hive_partitioning=true)
+GROUP BY ALL;
+```
+
+`scripts/run_doshi_sweep.py` runs the full Doshi2025 collection through the store (needs
+`visionlab.models` with that collection tagged).
+
 ## Known differences from the paper
 
 Validated against the authors' per-model csv (`reference/`): AlexNet, ResNet-50, ViT-B/16,

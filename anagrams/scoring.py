@@ -152,19 +152,20 @@ class AnagramResults:
     confusion: pd.DataFrame
 
     def save(self, directory: str | Path) -> Path:
-        """Write summary.json + predictions.csv (pairs/confusion are re-derived on load)."""
+        """Write summary.json + results.parquet (pairs/confusion are re-derived on load).
+
+        This is also the on-disk unit of the results store (see store.py)."""
         directory = Path(directory)
         directory.mkdir(parents=True, exist_ok=True)
-        (directory / "summary.json").write_text(json.dumps(self.summary, indent=2) + "\n")
-        self.predictions.to_csv(directory / "predictions.csv", index=False)
+        (directory / "summary.json").write_text(json.dumps(self.summary, indent=2, default=str) + "\n")
+        self.predictions.to_parquet(directory / "results.parquet", index=False)
         return directory
 
     @classmethod
     def load(cls, directory: str | Path) -> "AnagramResults":
         directory = Path(directory)
         summary = json.loads((directory / "summary.json").read_text())
-        predictions = pd.read_csv(directory / "predictions.csv", dtype={"anagram_id": str},
-                                  float_precision="round_trip")
+        predictions = pd.read_parquet(directory / "results.parquet")
         meta = {k: v for k, v in summary.items() if k in _META_KEYS(summary)}
         return score_predictions(predictions, **meta)
 

@@ -24,6 +24,7 @@ from .scoring import (
     score_predictions,
     summarize,
 )
+from .store import EVAL_NAME, ModelIdentity, ResultsStore, model_slug
 from .version import __version__
 from .zero_shot import ZeroShotClassifier, imagenet_class_names
 
@@ -53,6 +54,10 @@ __all__ = [
     "show_pairs",
     "HUMAN_CSS",
     "HUMAN_ACC",
+    "ResultsStore",
+    "ModelIdentity",
+    "model_slug",
+    "EVAL_NAME",
     "ZeroShotClassifier",
     "imagenet_class_names",
     "CHANCE_ACC",

@@ -257,7 +257,15 @@ Design the hook interface now so both drop in later; decide default + report bot
   that reproduces .8194/.9097 exactly. Our default (native 256 → open_clip preprocess) is the cleaner pipeline;
   `--paper-pipeline` flag reproduces the paper. DECISION for George: which is canonical for stored results.
 - [x] step 5: plot.py (plot_css, plot_acc_vs_css, plot_confusion, plot_margins, show_pairs), notebooks/demo_eval, README
-- [ ] steps 6–7
+- [x] step 6 (2026-09-05): `store.py` — Hive tree `eval=/version=/dataset=/model=` on s3://visionlab-evals (AWS
+  us-east-1, private, boto3 default chain) + local mirror; results.parquet + summary.json, identity columns in both;
+  `ModelIdentity` (source/arch:sha256[:8]; `from_spec` via model cards, `from_torchvision` via weight URL);
+  skip-unless-force; `query()`; DuckDB hive_partitioning verified on S3 and local. First object: alexnet pairs-72.
+  `scripts/run_doshi_sweep.py` skeleton (needs models repo + reference/doshi_model_map.csv).
+  Decisions (George): dataset as Hive level; resolve DEFAULT → hashid (and drop DEFAULT support in models repo);
+  weights_id = sha256[:8] only, no state_dict hashing (unreliable across systems); private bucket, dashboards
+  later via a write trigger populating a public/ summary.
+- [ ] step 7 (SSL hooks) + phase 2 sweep
 
 **Steps (coding order)**
 1. `mapping.py`, `scoring.py` (+ margins), `legacy.py`, tests on synthetic predictions.

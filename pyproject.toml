@@ -21,6 +21,10 @@ dependencies = [
     "datasets>=3.0",
     "huggingface_hub",
 
+    # Results store (parquet on S3 + local mirror)
+    "pyarrow",
+    "boto3",
+
     # Utilities
     "pillow",
     "numpy",
@@ -44,6 +48,7 @@ dev = [
     "jupytext",
     "ipywidgets",
     "jupyterlab",
+    "duckdb",   # querying the Hive-partitioned results tree in notebooks
 ]
 
 [tool.uv.sources]

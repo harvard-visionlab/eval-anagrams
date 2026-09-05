@@ -26,7 +26,7 @@ def test_anagram_eval_end_to_end():
     assert res.summary["n_images"] == 144 and res.summary["n_pairs"] == 72
     assert len(res.predictions) == 144 and set(res.predictions["label"]) == set(CLASSES)
     assert res.predictions["anagram_id"].str.len().eq(3).all()
-    assert res.summary["model_name"] == "fake" and res.summary["config"] == "pairs-72"
+    assert res.summary["model_name"] == "fake" and res.summary["dataset"] == "pairs-72"
 
 
 def test_imagenet_class_names():

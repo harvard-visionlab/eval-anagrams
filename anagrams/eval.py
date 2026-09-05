@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import getpass
+import platform
+from datetime import datetime, timezone
 from typing import Callable
 
 import numpy as np
@@ -80,9 +83,27 @@ def anagram_eval(
         .predictions (per image), .pairs (per anagram pair), .confusion (9x9).
     """
     ds = load_anagrams(config, revision=revision)
+    resolved_device = _resolve_device(model, device)
     scores = predict_scores(
         model, transform, ds, to_anagram_scores=to_anagram_scores, batch_size=batch_size,
-        device=device, num_workers=num_workers, progress=progress,
+        device=resolved_device, num_workers=num_workers, progress=progress,
     )
     predictions = build_predictions(metadata_frame(ds), scores)
-    return score_predictions(predictions, dataset=REPO_ID, config=config, **meta)
+    provenance = run_provenance(transform, resolved_device)
+    return score_predictions(predictions, dataset_repo=REPO_ID, dataset=config, **provenance, **meta)
+
+
+def run_provenance(transform, device) -> dict:
+    """Facts about how a run was produced; recorded in the summary so stored results are self-describing."""
+    device = torch.device(device)
+    gpu = torch.cuda.get_device_name(device) if device.type == "cuda" else None
+    return {
+        "transform": repr(transform),
+        "run_device": str(device),
+        "run_gpu": gpu,
+        "run_tf32": bool(torch.backends.cudnn.allow_tf32 or torch.backends.cuda.matmul.allow_tf32) if gpu else False,
+        "run_torch": torch.__version__,
+        "run_timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "run_user": getpass.getuser(),
+        "run_host": platform.node(),
+    }
