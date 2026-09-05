@@ -275,3 +275,49 @@ Design the hook interface now so both drop in later; decide default + report bot
 5. `plot.py`, `notebooks/demo_eval.py`, README (usage, metric definitions, reference table).
 6. `store.py` (local → S3) + `run_doshi_sweep.py` → phase 2 when models repo is ready.
 7. SSL hook implementations (probe / prototypes) → phase 3.
+
+
+## Proposal — readouts for self-supervised models (pending, 2026-09-05)
+
+A stored result is produced by a **backbone** (`model_id = source/arch:weights_id`) plus a **readout**
+(how logits are obtained). Supervised nets have one built-in readout; SSL nets have many (probe or
+prototypes per layer), each with its own hash. Applies to every lab eval, not just anagrams.
+
+**Layout: one more Hive level, `readout=`, always present**
+```
+eval=anagrams/version=0.1.0/dataset=pairs-72/model=<backbone slug>/readout=<readout slug>/results.parquet
+                                                                                              /summary.json
+readout=head                                   native classifier head (supervised / fine-tuned models)
+readout=probe__features.10__a1b2c3d4           linear probe on layer features.10, probe weights sha256[:8]
+readout=prototypes__blocks.11__9f8e7d6c        prototype classifier on blocks.11, prototypes sha256[:8]
+readout=zeroshot__5c4b3a29                     text-prompt classifier; hash of (class names, templates)
+```
+- Uniform depth keeps Hive tooling happy (`readout` is just another partition column). `head` is a
+  literal so supervised models stay legible.
+- Slug rule unchanged; layer names keep their dots (`features.10`), anything else → `_`.
+- Retrained probe → new hash → new partition. Nothing is overwritten.
+
+**Identity columns (both files)**: existing 8 + `readout_type` (head|probe|prototypes|zeroshot),
+`readout_layer` (module name; null for head/zeroshot), `readout_id` (sha256[:8]; = weights_id for head),
+`readout_spec` (as typed), and optional semantics from the readout card: `readout_train_data`
+(imagenet1k), `readout_n_classes` (1000 / 9). Key of a result = (dataset, model_id, readout_id).
+
+**Boundary with harvard-visionlab/models**: models repo owns backbones, readouts, their hashes and
+cards; it returns an nn.Module whose forward emits class scores (1000-way or 9-way) plus an identity
+object. The eval never sees layers or probe weights — `anagram_eval(model, transform)` is unchanged.
+Sketch: `model, transforms, identity = load_model("visionlab/alexnet_ipcl:3f9a1c2d", readout="probe:features.10:a1b2c3d4")`.
+Identity/slug code should live in the models repo (`visionlab.models.identity`) since hashes originate
+there; evals import it. Zero-shot readout id = sha256 of the JSON of (class names, templates) — string
+hashing is deterministic, unlike tensor hashing.
+
+**Efficiency (later)**: k probes on one backbone = k backbone passes if naive. Add
+`anagram_eval_multi(model, transform, readouts)` where forward returns `{readout_name: scores}` from one
+pass (FeatureExtractor in the models repo), producing k AnagramResults stored under k readout partitions.
+
+**Leaderboards**: a backbone needs one designated readout for "the" score. Proposal: models repo
+marks a default readout per backbone (e.g. best in1k probe); store records `readout_primary: bool`;
+dashboards filter on it. Otherwise per-layer results plot CSS vs `readout_layer`.
+
+**Open questions for the models agent**: spec syntax for backbone+readout; where identity code lives;
+whether prototype readouts are 1000-way (ImageNet classes → standard 1000→9 map) or 9-way (category
+prototypes) — both work with the eval's default hook; which readouts get `primary`.
