@@ -2,8 +2,12 @@
 
 Layout (same tree in the bucket and in the local cache):
 
-    eval=anagrams/version=0.1.0/dataset=pairs-72/model=pytorch__alexnet__7be5be79/results.parquet
-    eval=anagrams/version=0.1.0/dataset=pairs-72/model=pytorch__alexnet__7be5be79/summary.json
+    eval=anagrams/version=0.1.0/dataset=pairs-72/model=pytorch__alexnet__7be5be79/readout=head/results.parquet
+    eval=anagrams/version=0.1.0/dataset=pairs-72/model=pytorch__alexnet__7be5be79/readout=head/summary.json
+
+`readout=` names how class scores were read out of the backbone: `head` (native classifier),
+`probe__<layer>__<hash8>`, `prototypes__<layer>__<hash8>`, `zeroshot__<hash8>`. Every readout_id is
+the sha256[:8] of the head/prototype file (same rule as weights; contract with harvard-visionlab/models).
 
 - `results.parquet`: one row per image (predictions, scores, margins) plus identity columns.
 - `summary.json`: metrics + identity + run provenance. Both files are self-describing.
@@ -18,7 +22,7 @@ so a path always names one specific set of weights.
     store = ResultsStore()
     store.run("pytorch/alexnet:DEFAULT", dataset="pairs-72")    # load, eval, save (or return cached)
     store.query(dataset="pairs-72")                              # one summary row per stored model
-    store.load("pairs-72", "pytorch/alexnet:7be5be79")           # full AnagramResults
+    store.load("pairs-72", "pytorch/alexnet:7be5be79")           # full AnagramResults (readout="head")
 """
 
 from __future__ import annotations
@@ -39,7 +43,9 @@ EVAL_NAME = "anagrams"
 DEFAULT_BUCKET = os.environ.get("VISIONLAB_EVALS_BUCKET", "visionlab-evals")
 DEFAULT_CACHE = Path(os.environ.get("VISIONLAB_EVALS_CACHE", Path.home() / ".cache" / "visionlab" / "evals"))
 IDENTITY_COLS = ["eval_name", "eval_version", "dataset", "model_id", "model_spec", "model_source", "model_arch",
-                 "weights_id"]
+                 "weights_id", "readout_type", "readout_layer", "readout_id", "readout_spec", "readout_n_classes",
+                 "readout_train_data", "readout_primary"]
+READOUT_TYPES = ("head", "probe", "prototypes", "zeroshot")
 FILES = ("summary.json", "results.parquet")
 
 _SLUG_OK = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -55,13 +61,58 @@ def model_slug(model_id: str) -> str:
 
 
 @dataclass(frozen=True)
+class ReadoutIdentity:
+    """How class scores were read out of a backbone (mirrors visionlab.models ReadoutIdentity).
+    `readout_id` is sha256[:8] of the head / prototype file."""
+
+    readout_type: str
+    readout_id: str
+    readout_layer: str | None = None
+    readout_spec: str | None = None
+    readout_n_classes: int | None = None
+    readout_train_data: str | None = None
+    readout_primary: bool = True
+
+    def __post_init__(self):
+        if self.readout_type not in READOUT_TYPES:
+            raise ValueError(f"readout_type must be one of {READOUT_TYPES}, got {self.readout_type!r}")
+        if not _WEIGHTS_ID_OK.match(self.readout_id):
+            raise ValueError(f"readout_id must be sha256[:8], got {self.readout_id!r}")
+
+    @property
+    def slug(self) -> str:
+        if self.readout_type == "head":
+            return "head"
+        layer = _layer_slug(self.readout_layer) if self.readout_layer else None
+        parts = [self.readout_type] + ([layer] if layer else []) + [self.readout_id]
+        return "__".join(parts)
+
+    def as_dict(self) -> dict:
+        return {
+            "readout_type": self.readout_type,
+            "readout_layer": self.readout_layer,
+            "readout_id": self.readout_id,
+            "readout_spec": self.readout_spec or self.slug,
+            "readout_n_classes": self.readout_n_classes,
+            "readout_train_data": self.readout_train_data,
+            "readout_primary": self.readout_primary,
+        }
+
+
+def _layer_slug(layer: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]", "_", layer)
+
+
+@dataclass(frozen=True)
 class ModelIdentity:
-    """Who produced a result. `weights_id` is sha256[:8] of the weights file ('NONE' = random init)."""
+    """Who produced a result: backbone (`weights_id` = sha256[:8] of the weights file, 'NONE' = random
+    init) plus the readout used to get class scores (None = native head)."""
 
     model_source: str
     model_arch: str
     weights_id: str
     model_spec: str | None = None  # the spec as typed, e.g. 'pytorch/alexnet:DEFAULT'
+    readout: ReadoutIdentity | None = None
 
     def __post_init__(self):
         if not _WEIGHTS_ID_OK.match(self.weights_id):
@@ -77,24 +128,41 @@ class ModelIdentity:
     def model_id(self) -> str:
         return f"{self.model_source}/{self.model_arch}:{self.weights_id}"
 
+    @property
+    def readout_slug(self) -> str:
+        return self.readout.slug if self.readout is not None else "head"
+
     def as_dict(self) -> dict:
+        readout = self.readout or ReadoutIdentity("head", self.weights_id, readout_spec="head")
         return {
             "model_id": self.model_id,
             "model_spec": self.model_spec or self.model_id,
             "model_source": self.model_source,
             "model_arch": self.model_arch,
             "weights_id": self.weights_id,
+            **readout.as_dict(),
         }
 
     @classmethod
-    def from_spec(cls, spec: str) -> "ModelIdentity":
-        """Resolve a visionlab.models spec ('source/name[:weights]') through its model card."""
-        from visionlab.models import get_card, parse_spec  # optional dependency: uv sync --extra models
+    def from_visionlab(cls, identity, spec: str | None = None) -> "ModelIdentity":
+        """Adapt a `visionlab.models.ModelIdentity` (fields source, name, hashid, alias, optional readout)."""
+        readout = None
+        ro = getattr(identity, "readout", None)
+        if ro is not None and getattr(ro, "type", "head") != "head":
+            readout = ReadoutIdentity(
+                readout_type=ro.type, readout_id=ro.hashid, readout_layer=getattr(ro, "layer", None),
+                readout_spec=getattr(ro, "tag", None), readout_n_classes=getattr(ro, "n_classes", None),
+                readout_train_data=getattr(ro, "train_data", None), readout_primary=bool(getattr(ro, "primary", True)),
+            )
+        typed = spec or getattr(identity, "spec", None) or getattr(identity, "alias", None)
+        return cls(identity.source, identity.name, identity.hashid, model_spec=typed, readout=readout)
 
-        parsed = parse_spec(spec)
-        card = get_card(parsed)
-        weights_id = "NONE" if parsed.weights == "NONE" else card.get_weights(parsed.weights).hashid
-        return cls(card.source, card.name, weights_id, model_spec=spec)
+    @classmethod
+    def from_spec(cls, spec: str) -> "ModelIdentity":
+        """Resolve a visionlab.models spec ('source/name:weights[@readout]') without loading the model."""
+        from visionlab.models import resolve  # optional dependency: uv sync --extra models
+
+        return cls.from_visionlab(resolve(spec), spec=spec)
 
     @classmethod
     def from_torchvision(cls, weights) -> "ModelIdentity":
@@ -122,26 +190,27 @@ class ResultsStore:
         self._client = None
 
     # ----------------------------------------------------------------------------------- paths
-    def prefix(self, dataset: str | None = None, model_id: str | None = None) -> str:
+    def prefix(self, dataset: str | None = None, model_id: str | None = None, readout: str = "head") -> str:
         parts = [f"eval={self.eval_name}", f"version={self.eval_version}"]
         if dataset is not None:
             parts.append(f"dataset={dataset}")
         if model_id is not None:
             if dataset is None:
                 raise ValueError("model_id requires dataset")
-            parts.append(f"model={model_slug(model_id)}")
+            parts += [f"model={model_slug(model_id)}", f"readout={readout}"]
         return "/".join(parts)
 
-    def local_dir(self, dataset: str, model_id: str) -> Path:
-        return self.cache_dir / self.prefix(dataset, model_id)
+    def local_dir(self, dataset: str, model_id: str, readout: str = "head") -> Path:
+        return self.cache_dir / self.prefix(dataset, model_id, readout)
 
-    def s3_uri(self, dataset: str | None = None, model_id: str | None = None) -> str:
-        return f"s3://{self.bucket}/{self.prefix(dataset, model_id)}"
+    def s3_uri(self, dataset: str | None = None, model_id: str | None = None, readout: str = "head") -> str:
+        return f"s3://{self.bucket}/{self.prefix(dataset, model_id, readout)}"
 
     def duckdb_glob(self, dataset: str | None = None) -> str:
         """Glob for `read_parquet(<glob>, hive_partitioning=true)` over the S3 tree (or the local mirror)."""
         root = f"s3://{self.bucket}" if self.bucket else str(self.cache_dir)
-        return f"{root}/{self.prefix(dataset)}/{'*/' if dataset is not None else '*/*/'}results.parquet"
+        depth = "*/*/" if dataset is not None else "*/*/*/"  # [dataset/]model/readout
+        return f"{root}/{self.prefix(dataset)}/{depth}results.parquet"
 
     # ------------------------------------------------------------------------------------- s3
     @property
@@ -177,28 +246,30 @@ class ResultsStore:
         return sorted(str(p.relative_to(self.cache_dir)) for p in root.glob("**/summary.json"))
 
     # -------------------------------------------------------------------------------- read
-    def exists(self, dataset: str, model_id: str) -> bool:
-        local = self.local_dir(dataset, model_id)
+    def exists(self, dataset: str, model_id: str, readout: str = "head") -> bool:
+        local = self.local_dir(dataset, model_id, readout)
         if all((local / f).exists() for f in FILES):
             return True
-        return self._remote_exists(f"{self.prefix(dataset, model_id)}/summary.json")
+        return self._remote_exists(f"{self.prefix(dataset, model_id, readout)}/summary.json")
 
-    def load(self, dataset: str, model_id: str) -> AnagramResults:
-        """Full results (local mirror first, else fetched from S3 into the mirror)."""
-        local = self.local_dir(dataset, model_id)
+    def load(self, dataset: str, model_id: str, readout: str = "head") -> AnagramResults:
+        """Full results (local mirror first, else fetched from S3 into the mirror). `readout` is the slug."""
+        local = self.local_dir(dataset, model_id, readout)
         if not all((local / f).exists() for f in FILES):
             if not self.bucket:
-                raise FileNotFoundError(f"no results for {model_id} on {dataset} in {local}")
+                raise FileNotFoundError(f"no results for {model_id}@{readout} on {dataset} in {local}")
             local.mkdir(parents=True, exist_ok=True)
             for f in FILES:
-                self.s3.download_file(self.bucket, f"{self.prefix(dataset, model_id)}/{f}", str(local / f))
+                key = f"{self.prefix(dataset, model_id, readout)}/{f}"
+                self.s3.download_file(self.bucket, key, str(local / f))
         return AnagramResults.load(local)
 
-    def predictions(self, dataset: str, model_id: str) -> pd.DataFrame:
-        return self.load(dataset, model_id).predictions
+    def predictions(self, dataset: str, model_id: str, readout: str = "head") -> pd.DataFrame:
+        return self.load(dataset, model_id, readout).predictions
 
-    def query(self, dataset: str | None = None, models: list[str] | None = None) -> pd.DataFrame:
-        """One row per stored (dataset, model): identity + metrics + provenance. summary.json files are
+    def query(self, dataset: str | None = None, models: list[str] | None = None,
+              readout_type: str | None = None) -> pd.DataFrame:
+        """One row per stored (dataset, model, readout): identity + metrics + provenance. summary.json files are
         small, so they are always re-fetched from S3 (the mirror copy is refreshed)."""
         rows = []
         for key in self._list_summaries(dataset):
@@ -210,6 +281,8 @@ class ResultsStore:
         df = pd.DataFrame(rows)
         if models is not None and len(df):
             df = df[df["model_id"].isin(models)]
+        if readout_type is not None and len(df):
+            df = df[df["readout_type"] == readout_type]
         if len(df):
             df = df.sort_values(["dataset", "css"], ascending=[True, False]).reset_index(drop=True)
         return df
@@ -219,8 +292,9 @@ class ResultsStore:
         """Stamp identity into both files, write the local mirror, upload to S3. Returns the S3/local URI."""
         if results.summary.get("dataset") not in (None, dataset):
             raise ValueError(f"results were computed on {results.summary['dataset']!r}, not {dataset!r}")
-        if not force and self.exists(dataset, identity.model_id):
-            raise FileExistsError(f"{self.prefix(dataset, identity.model_id)} exists; pass force=True to overwrite")
+        key = (dataset, identity.model_id, identity.readout_slug)
+        if not force and self.exists(*key):
+            raise FileExistsError(f"{self.prefix(*key)} exists; pass force=True to overwrite")
 
         ident = {"eval_name": self.eval_name, "eval_version": self.eval_version, "dataset": dataset,
                  **identity.as_dict()}
@@ -231,11 +305,11 @@ class ResultsStore:
         predictions = predictions[IDENTITY_COLS + [c for c in predictions.columns if c not in IDENTITY_COLS]]
         stamped = AnagramResults(summary, predictions, results.pairs, results.confusion)
 
-        local = stamped.save(self.local_dir(dataset, identity.model_id))
+        local = stamped.save(self.local_dir(*key))
         if self.bucket:
             for f in FILES:
-                self.s3.upload_file(str(local / f), self.bucket, f"{self.prefix(dataset, identity.model_id)}/{f}")
-            return self.s3_uri(dataset, identity.model_id)
+                self.s3.upload_file(str(local / f), self.bucket, f"{self.prefix(*key)}/{f}")
+            return self.s3_uri(*key)
         return str(local)
 
     def run(
@@ -245,12 +319,15 @@ class ResultsStore:
         dataset: str = DEFAULT_CONFIG,
         identity: ModelIdentity | None = None,
         force: bool = False,
+        seed: int | None = None,
         **eval_kwargs,
     ) -> AnagramResults:
         """Evaluate and store, or return the stored result.
 
-        Pass a visionlab.models spec string (model + `transforms.test` are loaded for you and the identity
-        comes from the model card), or a model + transform + explicit `identity`.
+        Pass a visionlab.models spec string ('source/name:weights[@readout]'; model, `transforms.test` and
+        identity come from the model card), or a model + transform + explicit `identity`.
+        Random-init baselines (weights 'NONE') are loaded with `seed` (default 0) and the seed is recorded
+        as `run_seed`; the identity itself does not encode the seed.
         """
         from .eval import anagram_eval
 
@@ -259,13 +336,21 @@ class ResultsStore:
         elif identity is None:
             raise ValueError("pass identity=ModelIdentity(...) when giving a model object")
 
-        if not force and self.exists(dataset, identity.model_id):
-            return self.load(dataset, identity.model_id)
+        key = (dataset, identity.model_id, identity.readout_slug)
+        if not force and self.exists(*key):
+            return self.load(*key)
+
+        if identity.weights_id == "NONE" and seed is None:
+            seed = 0
+        if seed is not None:
+            eval_kwargs.setdefault("run_seed", seed)
 
         if isinstance(model_or_spec, str):
             from visionlab.models import load_model
 
-            model, transforms = load_model(model_or_spec)
+            load_kwargs = {"seed": seed} if seed is not None else {}
+            model, transforms, vl_identity = load_model(model_or_spec, **load_kwargs)
+            identity = ModelIdentity.from_visionlab(vl_identity, spec=model_or_spec)
             transform = transforms.test if transform is None else transform
         else:
             model = model_or_spec
@@ -274,7 +359,7 @@ class ResultsStore:
 
         results = anagram_eval(model, transform, config=dataset, **eval_kwargs)
         self.save(results, identity, dataset, force=force)
-        return self.load(dataset, identity.model_id)
+        return self.load(*key)
 
 
 def _dataset_revision() -> dict:

@@ -5,9 +5,10 @@
     uv run python scripts/run_doshi_sweep.py --datasets pairs-72 --models pytorch/alexnet:DEFAULT ...
     uv run python scripts/run_doshi_sweep.py --local                   # write only to the local mirror
 
-Results land in s3://visionlab-evals/eval=anagrams/version=<v>/dataset=<d>/model=<slug>/ (skip if present,
---force to recompute). Comparison against the paper uses reference/doshi_model_map.csv
-(columns: model_id, doshi_name) — fill it in as model cards land.
+Results land in s3://visionlab-evals/eval=anagrams/version=<v>/dataset=<d>/model=<slug>/readout=<slug>/ (skip if
+present, --force to recompute). Comparison against the paper joins on the paper's model name, taken from
+`identity.collection_names["Doshi2025"]` (models repo collection file) with reference/doshi_model_map.csv
+(columns: model_id, doshi_name) as a manual fallback/override.
 
 Known, expected differences from the paper (see README "Known differences"): zero-shot SigLIP/CLIP models
 sit ~0.6% of images lower (their double-resize preprocessing); ±1 image on convnets unless TF32 is off
@@ -44,7 +45,8 @@ def main():
 
     from visionlab.models import list_models
 
-    specs = args.models or list_models(tags=["Doshi2025"])
+    # str() of an identity is 'source/name:hashid[@readout]' — a loadable spec
+    specs = args.models or [str(m) for m in list_models(tags="Doshi2025", include_untrained=True)]
     store = ResultsStore(bucket=None) if args.local else ResultsStore()
     print(f"{len(specs)} models x {args.datasets} -> {store.s3_uri() if store.bucket else store.cache_dir}")
 
@@ -71,15 +73,34 @@ def main():
             print("  ", *f)
 
 
-def compare(store: ResultsStore, dataset: str):
-    """Ours vs the paper, joined through reference/doshi_model_map.csv when available."""
+def paper_name_map() -> pd.DataFrame:
+    """model_id -> doshi_name from the models repo collection, overridden by reference/doshi_model_map.csv."""
+    rows = {}
+    try:
+        from visionlab.models import list_models
+
+        for ident in list_models(tags="Doshi2025", include_untrained=True):
+            name = (getattr(ident, "collection_names", None) or {}).get("Doshi2025")
+            if name:
+                rows[ident.model_id] = name
+    except Exception as e:  # models repo without collection names yet
+        print(f"(collection names unavailable: {type(e).__name__}: {e})")
     map_path = ROOT / "reference" / "doshi_model_map.csv"
-    if not map_path.exists():
-        print(f"\n[{dataset}] no {map_path.name}; skipping comparison with the paper")
+    if map_path.exists():
+        rows.update(pd.read_csv(map_path).set_index("model_id")["doshi_name"].to_dict())
+    return pd.DataFrame({"model_id": list(rows), "doshi_name": list(rows.values())})
+
+
+def compare(store: ResultsStore, dataset: str):
+    """Ours vs the paper (primary readouts only)."""
+    names = paper_name_map()
+    if names.empty:
+        print(f"\n[{dataset}] no paper-name mapping available; skipping comparison")
         return
     ours = store.query(dataset=dataset)
+    ours = ours[ours["readout_primary"].fillna(True).astype(bool)]
     ref = pd.read_csv(ROOT / "reference" / f"doshi_css_{dataset.replace('-', '')}.csv")
-    m = pd.read_csv(map_path).merge(ours[["model_id", "css", "acc", "n_pairs"]], on="model_id")
+    m = names.merge(ours[["model_id", "css", "acc", "n_pairs"]], on="model_id")
     ref = ref.rename(columns={"model_name": "doshi_name", "css": "doshi_css", "acc": "doshi_acc"})
     m = m.merge(ref, on="doshi_name")
     m["delta_pairs"] = ((m["css"] - m["doshi_css"]) * m["n_pairs"]).round(1)

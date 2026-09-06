@@ -277,7 +277,24 @@ Design the hook interface now so both drop in later; decide default + report bot
 7. SSL hook implementations (probe / prototypes) → phase 3.
 
 
-## Proposal — readouts for self-supervised models (pending, 2026-09-05)
+## Readout contract — agreed with the models agent (2026-09-05; George to sign off on the models side)
+
+models repo (commit c18350e): `load_model(spec) -> (model, transforms, identity)`; `visionlab.models.ModelIdentity`
+(source, name, hashid, alias, …; `model_id`, `slug`), `resolve(spec)`; every hashid = sha256[:8] of the downloaded
+FILE. Grammar `source/name:weights[@readout]`, readout = tag | hashid | omitted (native head, else card `primary`)
+| 'none' (raw backbone). Readouts are card entries (type head|probe|prototypes|zeroshot, layer, url, hashid,
+n_classes, train_data, primary); zero-shot = prototypes computed once from the text tower and saved to a FILE
+(readout_id = file hash; class-name/template json sha kept as provenance). 1000-way readouts are primary; 9-way is a
+separate readout. `identity.readout.slug` -> head | probe__<layer>__<hash8> | zeroshot__<hash8> — matches our Hive
+level 1:1. Adapted here: `readout=` level always present, `ReadoutIdentity`, `ModelIdentity.from_visionlab`, 3-tuple
+unpack, `list_models(tags="Doshi2025", include_untrained=True)`, paper names via `identity.collection_names`.
+Our ModelIdentity copy is removed once models ships `spec`/`model_source`/`weights_id` aliases + `collection_names`.
+
+Doshi2025 landing order (models agent): 32/91 loadable now (torchvision 8 + :NONE 4, timm 20); next 15 timm
+fine-tuned (→47); then wave 2b dinov2 *_lc ×8 + siglip/siglip2 zero-shot ×6; then vendored (lrm3, stylized, cornet,
+bagnet, robust ×10, topk ×6, hybrid_anime_alexnet).
+
+## Original proposal (superseded by the contract above, kept for the record)
 
 A stored result is produced by a **backbone** (`model_id = source/arch:weights_id`) plus a **readout**
 (how logits are obtained). Supervised nets have one built-in readout; SSL nets have many (probe or

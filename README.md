@@ -90,23 +90,29 @@ Results live in `s3://visionlab-evals` as a Hive-partitioned tree, mirrored at
 `~/.cache/visionlab/evals` (`VISIONLAB_EVALS_CACHE`, `VISIONLAB_EVALS_BUCKET` to override):
 
 ```
-eval=anagrams/version=0.1.0/dataset=pairs-72/model=pytorch__alexnet__7be5be79/results.parquet   # per image
-eval=anagrams/version=0.1.0/dataset=pairs-72/model=pytorch__alexnet__7be5be79/summary.json      # metrics + provenance
+eval=anagrams/version=0.1.0/dataset=pairs-72/model=pytorch__alexnet__7be5be79/readout=head/results.parquet   # per image
+eval=anagrams/version=0.1.0/dataset=pairs-72/model=pytorch__alexnet__7be5be79/readout=head/summary.json      # metrics + provenance
 ```
 
 Model identity is `source/arch:weights_id` with `weights_id` = sha256[:8] of the weights file
-(the `visionlab.models` convention); aliases like `DEFAULT` are resolved before storing. Both files
-carry `eval_name, eval_version, dataset, model_id, model_spec, model_source, model_arch, weights_id`,
-so they stay self-describing when copied out of the tree. Objects are private (lab AWS credentials).
+(the `visionlab.models` convention); aliases like `DEFAULT` are resolved before storing. `readout=`
+says how class scores were obtained: `head` (native classifier), `probe__<layer>__<hash8>`,
+`prototypes__<layer>__<hash8>`, `zeroshot__<hash8>` (self-supervised / CLIP backbones; readout ids are
+file hashes provided by `visionlab.models`). Both files carry the identity columns
+(`eval_name, eval_version, dataset, model_id, model_spec, model_source, model_arch, weights_id,
+readout_type, readout_layer, readout_id, readout_spec, readout_n_classes, readout_train_data,
+readout_primary`), so they stay self-describing when copied out of the tree. Objects are private
+(lab AWS credentials).
 
 ```python
 from visionlab.evals.anagrams import ResultsStore, ModelIdentity
 
 store = ResultsStore()
 store.run("pytorch/alexnet:DEFAULT", dataset="pairs-72")        # via visionlab.models; skips if stored
+store.run("visionlab/alexnet_ipcl:3f9a1c2d@fc6_probe", dataset="pairs-72")   # SSL backbone + readout
 store.run(model, transform, dataset="pairs-72",                  # any model, explicit identity
           identity=ModelIdentity.from_torchvision(AlexNet_Weights.IMAGENET1K_V1))
-store.query(dataset="pairs-72")                                  # DataFrame: one row per stored model
+store.query(dataset="pairs-72")                                  # DataFrame: one row per stored (model, readout)
 store.load("pairs-72", "pytorch/alexnet:7be5be79")               # full AnagramResults
 ```
 
@@ -115,7 +121,7 @@ Any Hive-aware tool reads the tree directly; e.g. DuckDB:
 ```sql
 INSTALL httpfs; LOAD httpfs; CREATE SECRET (TYPE s3, PROVIDER credential_chain);
 SELECT dataset, model_id, avg(correct::INT) acc, avg(decision_margin) dm
-FROM read_parquet('s3://visionlab-evals/eval=anagrams/version=0.1.0/*/*/results.parquet', hive_partitioning=true)
+FROM read_parquet('s3://visionlab-evals/eval=anagrams/version=0.1.0/*/*/*/results.parquet', hive_partitioning=true)
 GROUP BY ALL;
 ```
 
