@@ -320,8 +320,10 @@ Agreed direction (eval + models agents; George to sign off):
 - Canonical string `kind:k=v,...` (sorted params) → intervention_id = sha256[:8] of the string; slug e.g.
   `topk__k0.4`, `lrm__passes1_steeringtrue`, `none`. Columns: intervention_kind, intervention_params (json),
   intervention_id, intervention_spec. Result key = (dataset, model_id, readout_id, intervention_id).
-- LRM passes are an intervention (`lrm:passes=1`), not a readout: keeps "readout_id is a file hash" exception-free
-  and composes with steering. Native forward (3 passes) = `none`.
+- LRM passes are an intervention (`lrm:passes=N`), not a readout: keeps "readout_id is a file hash" exception-free
+  and composes with steering. CORRECTION (models agent, 2026-09-06): alexnet_lrm3's native forward is 2 passes, so
+  paper pass2 = `none`, pass1 = `+lrm:passes=1`, pass3 = `+lrm:passes=3` (passes are causal; pass-N output is the
+  same whether N or 3 passes are run).
 - Spec grammar: `source/name:hashid[@readout][+intervention]`, parsed right-to-left (`+`, `@`, `:`), so
   `get_collection` keeps returning single loadable strings. Collection entries carry an `intervention` field;
   paper names map topk_alexnet_40pct → pytorch/alexnet:7be5be79 + topk:k=0.4.
