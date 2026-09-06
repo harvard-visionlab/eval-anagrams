@@ -35,7 +35,8 @@ dependencies = [
 
 [project.optional-dependencies]
 # lab members: load models via visionlab.models
-models = ["visionlab-models@git+https://github.com/harvard-visionlab/models.git"]
+# [cornet] pulls dicarlolab/CORnet (GPL-3.0) as a runtime dependency for the CORnet cards; [clip] for open_clip towers
+models = ["visionlab-models[cornet,clip]@git+https://github.com/harvard-visionlab/models.git"]
 # phase-1 validation sweep (timm heads, SigLIP zero-shot via open_clip)
 validation = ["timm>=1.0", "open_clip_torch>=2.24", "transformers>=4.40", "sentencepiece", "protobuf"]  # SigLIP2 tokenizer needs transformers
 

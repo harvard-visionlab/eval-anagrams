@@ -272,8 +272,12 @@ Design the hook interface now so both drop in later; decide default + report bot
   check (not stored). DECISION for George: confirm canonical = model-native interpolation.
 - [x] interventions live in models (0e893c2b): `pytorch/alexnet:7be5be79+topk:k=0.4` end-to-end through the store on CPU
   matches the paper exactly (css .0278 / acc .2431); hashes/slugs/result_key identical on both sides. Collection 66/91.
-- [ ] phase 2 partial sweep (66 models) on the GPU box: canonical → store; --paper-pipeline → replication csv
-- [ ] known: paper's robust_resnet50 eps0.25 row used eps0.1 weights (Doshi builder had identical urls) — documented
+- [x] models wave 2c (73f84b9c): Doshi2025 at 89/91 loadable (only hybrid_anime_alexnet_sgd_lr005 missing; 'human'
+  is not a model). Stylized (rgeirhos/*), robust (madrylab/resnet50 ×10), bagnets, dicarlo/cornet_* (GPL dep via
+  `[cornet]` extra), visionlab/alexnet_lrm3 (+lrm:passes=1/3). Our `models` extra now = visionlab-models[cornet,clip].
+- [ ] phase 2 FULL sweep (89 models) on the GPU box: canonical → store; --paper-pipeline → replication csv
+- [x] known: paper's robust_resnet50 eps0.25 row used eps0.1 weights (Dropbox file == Madry eps0.1, hash 3298f8cf);
+  collection entry points at true eps0.25 (26c9eefb) → expect that row to differ — documented in README
 - [ ] step 7: SSL readouts are now the models repo's job (probe/prototype cards); eval side is done
 
 **Steps (coding order)**

@@ -14,7 +14,7 @@ different animals. CSS = fraction of pairs for which a model classifies **both**
 git clone https://github.com/harvard-visionlab/eval-anagrams.git
 cd eval-anagrams
 uv sync --dev                       # + --extra validation (timm, open_clip) for scripts/run_validation.py
-                                    # + --extra models     (visionlab.models) for lab model loading
+                                    # + --extra models     (visionlab.models incl. cornet/clip) for lab model loading + sweeps
 ```
 
 Torch resolves to the CUDA 12.6 build on Linux x86_64 and CPU builds elsewhere (see `pyproject.toml`).
@@ -150,9 +150,10 @@ fp32. Two things to expect when reproducing the full sweep:
   0.611 on 72 pairs; bilinear reproduces 0.611 exactly). `scripts/run_doshi_sweep.py --paper-pipeline`
   runs the paper's preprocessing as a replication check without touching the store.
 - **Adversarially robust ResNet-50, ε = 0.25.** Doshi's builder pointed the ε=0.1 and ε=0.25 entries at
-  the same Dropbox file, so the paper's ε=0.25 row was computed with ε=0.1 weights. The models repo
-  mirrors Madry's canonical checkpoints for all ten ε values; expect the ε=0.25 result to differ from
-  the paper (and the ε=0.1 result to match), pending the file-hash check.
+  the same Dropbox file, which hashes identically to Madry's canonical ε=0.1 checkpoint (`3298f8cf`).
+  The paper's `robust_resnet50_l2_eps_0_25` row is therefore ε=0.1 weights. The models repo entry for
+  that name points at the true ε=0.25 weights (`madrylab/resnet50:26c9eefb`), so that one row is
+  expected to differ from the paper while the ε=0.1 row matches.
 - **TF32 can flip near-zero-margin images.** ResNet-50 has one image (cat/turtle, |dm| = 0.004)
   that flips between fp32 and TF32 kernels. Run with TF32 disabled for reproducible numbers
   (the validation script does this by default).
