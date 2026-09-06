@@ -300,6 +300,31 @@ Doshi2025 landing order (models agent): 32/91 loadable now (torchvision 8 + :NON
 fine-tuned (→47); then wave 2b dinov2 *_lc ×8 + siglip/siglip2 zero-shot ×6; then vendored (lrm3, stylized, cornet,
 bagnet, robust ×10, topk ×6, hybrid_anime_alexnet).
 
+## Joint proposal — interventions (pending George, 2026-09-05)
+
+Wave 2c has behavior-altering levers that are neither weights nor readouts: top-k sparsification
+(topk_alexnet_{40,60,80}pct: torchvision weights unchanged, parameter-free TopK layers), LRM pass count
+(alexnet_lrm3_pass{1,2,3}), later attention-radius masks / ablations / steering. Lab policy: architecture is
+immutable and equals the card name; no behavior kwargs on builders.
+
+Agreed direction (eval + models agents; George to sign off):
+- Four levers: architecture (card name), weights (hashid), readout (`@`, file hash), **intervention** (new):
+  a declared parameter-free change to the computation at inference. `dataset=` = what goes in;
+  `intervention=` = change to the computation; `readout=` = how scores come out.
+- Hive gets a 4th, innermost level with literal `none`:
+  `.../model=<slug>/readout=<slug>/intervention=<slug>/{results.parquet,summary.json}`
+  (innermost because interventions are the sweep variable: fix model+readout, vary k / radius / pass).
+- Canonical string `kind:k=v,...` (sorted params) → intervention_id = sha256[:8] of the string; slug e.g.
+  `topk__k0.4`, `lrm__passes1_steeringtrue`, `none`. Columns: intervention_kind, intervention_params (json),
+  intervention_id, intervention_spec. Result key = (dataset, model_id, readout_id, intervention_id).
+- LRM passes are an intervention (`lrm:passes=1`), not a readout: keeps "readout_id is a file hash" exception-free
+  and composes with steering. Native forward (3 passes) = `none`.
+- Spec grammar: `source/name:hashid[@readout][+intervention]`, parsed right-to-left (`+`, `@`, `:`), so
+  `get_collection` keeps returning single loadable strings. Collection entries carry an `intervention` field;
+  paper names map topk_alexnet_40pct → pytorch/alexnet:7be5be79 + topk:k=0.4.
+- Card caution: layer placement is part of the intervention *kind*, not a param.
+- Eval side once approved: `InterventionIdentity`, 4th level in store.py, adapter, sweep unchanged.
+
 ## Original proposal (superseded by the contract above, kept for the record)
 
 A stored result is produced by a **backbone** (`model_id = source/arch:weights_id`) plus a **readout**
