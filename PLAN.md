@@ -265,7 +265,13 @@ Design the hook interface now so both drop in later; decide default + report bot
   Decisions (George): dataset as Hive level; resolve DEFAULT → hashid (and drop DEFAULT support in models repo);
   weights_id = sha256[:8] only, no state_dict hashing (unreliable across systems); private bucket, dashboards
   later via a write trigger populating a public/ summary.
-- [ ] step 7 (SSL hooks) + phase 2 sweep
+- [x] models repo waves 2a'+2b landed (542c6c9): 60/91 Doshi2025 loadable with paper names; store.run(spec) verified
+  end-to-end on CPU for head (alexnet exact), probe (dinov2 lc4) and zeroshot (siglip) readouts.
+  FINDING: paper used bilinear Resize((224,224)) for all models; card-native bicubic shifts DINOv2 by 2–3 pairs
+  (bilinear reproduces exactly). Canonical = card preprocessing; `run_doshi_sweep.py --paper-pipeline` = replication
+  check (not stored). DECISION for George: confirm canonical = model-native interpolation.
+- [ ] phase 2 partial sweep (60 models) on the GPU box: canonical → store; --paper-pipeline → replication csv
+- [ ] step 7: SSL readouts are now the models repo's job (probe/prototype cards); eval side is done
 
 **Steps (coding order)**
 1. `mapping.py`, `scoring.py` (+ margins), `legacy.py`, tests on synthetic predictions.

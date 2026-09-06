@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pandas as pd
@@ -113,6 +113,7 @@ class ModelIdentity:
     weights_id: str
     model_spec: str | None = None  # the spec as typed, e.g. 'pytorch/alexnet:DEFAULT'
     readout: ReadoutIdentity | None = None
+    collection_names: dict = field(default_factory=dict)  # e.g. {"Doshi2025": "resnet50_in1k"} (summary only)
 
     def __post_init__(self):
         if not _WEIGHTS_ID_OK.match(self.weights_id):
@@ -155,7 +156,9 @@ class ModelIdentity:
                 readout_train_data=getattr(ro, "train_data", None), readout_primary=bool(getattr(ro, "primary", True)),
             )
         typed = spec or getattr(identity, "spec", None) or getattr(identity, "alias", None)
-        return cls(identity.source, identity.name, identity.hashid, model_spec=typed, readout=readout)
+        names = getattr(identity, "collection_names", None) or {}
+        return cls(identity.source, identity.name, identity.hashid, model_spec=typed, readout=readout,
+                   collection_names=dict(names))
 
     @classmethod
     def from_spec(cls, spec: str) -> "ModelIdentity":
@@ -298,7 +301,9 @@ class ResultsStore:
 
         ident = {"eval_name": self.eval_name, "eval_version": self.eval_version, "dataset": dataset,
                  **identity.as_dict()}
-        summary = {**ident, **{k: v for k, v in results.summary.items() if k not in ident}, **_dataset_revision()}
+        extra = {"collection_names": json.dumps(identity.collection_names, sort_keys=True)}
+        summary = {**ident, **extra, **{k: v for k, v in results.summary.items() if k not in ident},
+                   **_dataset_revision()}
         predictions = results.predictions.copy()
         for k in IDENTITY_COLS:
             predictions[k] = ident[k]

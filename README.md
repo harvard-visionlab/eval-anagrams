@@ -140,6 +140,11 @@ fp32. Two things to expect when reproducing the full sweep:
   (SigLIP2-L/16: CSS 0.806 vs 0.819 on 72 pairs, 0.861 vs 0.873 on 1440). Expect the same offset
   for every zero-shot model in the Doshi2025 suite. `scripts/run_validation.py --paper-pipeline`
   reproduces the paper's numbers exactly if parity is needed.
+- **Resize interpolation.** The paper used torchvision's default *bilinear* `Resize((224,224))` for
+  every model. We use each model's own eval interpolation from its card, so bicubic-native models
+  (DINOv2, timm ViTs, BEiT, ConvNeXt, …) land 1–3 pairs from the paper (DINOv2-B/14: CSS 0.569 vs
+  0.611 on 72 pairs; bilinear reproduces 0.611 exactly). `scripts/run_doshi_sweep.py --paper-pipeline`
+  runs the paper's preprocessing as a replication check without touching the store.
 - **TF32 can flip near-zero-margin images.** ResNet-50 has one image (cat/turtle, |dm| = 0.004)
   that flips between fp32 and TF32 kernels. Run with TF32 disabled for reproducible numbers
   (the validation script does this by default).
