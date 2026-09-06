@@ -149,6 +149,10 @@ fp32. Two things to expect when reproducing the full sweep:
   (DINOv2, timm ViTs, BEiT, ConvNeXt, …) land 1–3 pairs from the paper (DINOv2-B/14: CSS 0.569 vs
   0.611 on 72 pairs; bilinear reproduces 0.611 exactly). `scripts/run_doshi_sweep.py --paper-pipeline`
   runs the paper's preprocessing as a replication check without touching the store.
+- **Adversarially robust ResNet-50, ε = 0.25.** Doshi's builder pointed the ε=0.1 and ε=0.25 entries at
+  the same Dropbox file, so the paper's ε=0.25 row was computed with ε=0.1 weights. The models repo
+  mirrors Madry's canonical checkpoints for all ten ε values; expect the ε=0.25 result to differ from
+  the paper (and the ε=0.1 result to match), pending the file-hash check.
 - **TF32 can flip near-zero-margin images.** ResNet-50 has one image (cat/turtle, |dm| = 0.004)
   that flips between fp32 and TF32 kernels. Run with TF32 disabled for reproducible numbers
   (the validation script does this by default).

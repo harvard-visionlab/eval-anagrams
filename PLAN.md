@@ -270,7 +270,10 @@ Design the hook interface now so both drop in later; decide default + report bot
   FINDING: paper used bilinear Resize((224,224)) for all models; card-native bicubic shifts DINOv2 by 2–3 pairs
   (bilinear reproduces exactly). Canonical = card preprocessing; `run_doshi_sweep.py --paper-pipeline` = replication
   check (not stored). DECISION for George: confirm canonical = model-native interpolation.
-- [ ] phase 2 partial sweep (60 models) on the GPU box: canonical → store; --paper-pipeline → replication csv
+- [x] interventions live in models (0e893c2b): `pytorch/alexnet:7be5be79+topk:k=0.4` end-to-end through the store on CPU
+  matches the paper exactly (css .0278 / acc .2431); hashes/slugs/result_key identical on both sides. Collection 66/91.
+- [ ] phase 2 partial sweep (66 models) on the GPU box: canonical → store; --paper-pipeline → replication csv
+- [ ] known: paper's robust_resnet50 eps0.25 row used eps0.1 weights (Doshi builder had identical urls) — documented
 - [ ] step 7: SSL readouts are now the models repo's job (probe/prototype cards); eval side is done
 
 **Steps (coding order)**
