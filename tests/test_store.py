@@ -6,6 +6,7 @@ import pytest
 from torchvision.models import AlexNet_Weights, ResNet50_Weights, ViT_B_16_Weights
 from visionlab.evals.anagrams import (
     CLASSES,
+    InterventionIdentity,
     ModelIdentity,
     ReadoutIdentity,
     ResultsStore,
@@ -50,7 +51,7 @@ def test_store_roundtrip_local(tmp_path):
     assert not store.exists("pairs-72", ident.model_id)
 
     uri = store.save(_results(), ident, "pairs-72")
-    assert uri.endswith("eval=anagrams/version=0.0.test/dataset=pairs-72/model=pytorch__alexnet__7be5be79/readout=head")
+    assert uri.endswith("dataset=pairs-72/model=pytorch__alexnet__7be5be79/readout=head/intervention=none")
     assert store.exists("pairs-72", ident.model_id)
     assert (tmp_path / store.prefix("pairs-72", ident.model_id) / "results.parquet").exists()
 
@@ -60,6 +61,7 @@ def test_store_roundtrip_local(tmp_path):
     assert list(back.predictions.columns[:8]) == ["eval_name", "eval_version", "dataset", "model_id", "model_spec",
                                                   "model_source", "model_arch", "weights_id"]
     assert back.summary["readout_type"] == "head" and back.summary["readout_id"] == "7be5be79"
+    assert back.summary["intervention_kind"] == "none" and back.summary["intervention_id"] == "none"
 
     with pytest.raises(FileExistsError):
         store.save(_results(), ident, "pairs-72")
@@ -71,8 +73,8 @@ def test_store_roundtrip_local(tmp_path):
     q = store.query()
     assert len(q) == 1 and q.loc[0, "model_id"] == ident.model_id and q.loc[0, "dataset"] == "pairs-72"
     assert store.query(dataset="pairs-1440").empty
-    assert store.duckdb_glob("pairs-72").endswith("dataset=pairs-72/*/*/results.parquet")
-    assert store.duckdb_glob().endswith("version=0.0.test/*/*/*/results.parquet")
+    assert store.duckdb_glob("pairs-72").endswith("dataset=pairs-72/*/*/*/results.parquet")
+    assert store.duckdb_glob().endswith("version=0.0.test/*/*/*/*/results.parquet")
 
 
 def test_readouts_partition_separately(tmp_path):
@@ -118,3 +120,47 @@ def test_identity_from_visionlab_adapter():
     assert ident.readout_slug == "probe__features.10__a1b2c3d4"
     d = ident.as_dict()
     assert d["readout_spec"] == "fc6_probe" and d["readout_n_classes"] == 1000 and d["readout_primary"] is True
+
+
+def test_interventions_partition_separately(tmp_path):
+    topk = InterventionIdentity("topk", {"k": 0.4}, spec="topk:k=0.4")
+    assert topk.canonical == "topk:k=0.4" and topk.slug == "topk__k0.4"
+    assert topk.intervention_id == InterventionIdentity("topk", {"k": 0.4}).intervention_id  # deterministic
+    lrm = InterventionIdentity("lrm", {"steering": True, "passes": 1})
+    assert lrm.canonical == "lrm:passes=1,steering=true" and lrm.slug == "lrm__passes1_steeringtrue"
+    assert InterventionIdentity("ablate").canonical == "ablate" and InterventionIdentity("ablate").slug == "ablate"
+    with pytest.raises(ValueError):
+        InterventionIdentity("none")
+
+    store = ResultsStore(bucket=None, cache_dir=tmp_path, eval_version="0.0.test")
+    backbone = dict(model_source="pytorch", model_arch="alexnet", weights_id="7be5be79")
+    intact = ModelIdentity(**backbone)
+    sparse = ModelIdentity(**backbone, intervention=topk)
+    assert intact.key == ("pytorch/alexnet:7be5be79", "head", "none")
+    assert sparse.key == ("pytorch/alexnet:7be5be79", "head", "topk__k0.4")
+    store.save(_results(), intact, "pairs-72")
+    store.save(_results(), sparse, "pairs-72")
+    assert store.exists("pairs-72", intact.model_id) and store.exists("pairs-72", intact.model_id, "head", "topk__k0.4")
+
+    q = store.query(dataset="pairs-72")
+    assert len(q) == 2 and set(q["intervention_kind"]) == {"none", "topk"}
+    row = store.query(intervention_kind="topk").iloc[0]
+    assert row["intervention_params"] == '{"k": 0.4}' and row["intervention_spec"] == "topk:k=0.4"
+    assert row["intervention_id"] == topk.intervention_id and row["model_id"] == intact.model_id
+    back = store.load("pairs-72", intact.model_id, "head", topk.slug)
+    assert back.predictions["intervention_kind"].eq("topk").all()
+
+
+class _FakeIntervention:
+    kind, params, spec = "topk", {"k": 0.6}, "topk:k=0.6"
+
+
+class _FakeVisionlabIdentityWithIntervention(_FakeVisionlabIdentity):
+    readout = None
+    intervention = _FakeIntervention()
+
+
+def test_identity_from_visionlab_with_intervention():
+    ident = ModelIdentity.from_visionlab(_FakeVisionlabIdentityWithIntervention())
+    assert ident.readout_slug == "head" and ident.intervention_slug == "topk__k0.6"
+    assert ident.as_dict()["intervention_spec"] == "topk:k=0.6"

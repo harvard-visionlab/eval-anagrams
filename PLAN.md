@@ -300,7 +300,7 @@ Doshi2025 landing order (models agent): 32/91 loadable now (torchvision 8 + :NON
 fine-tuned (→47); then wave 2b dinov2 *_lc ×8 + siglip/siglip2 zero-shot ×6; then vendored (lrm3, stylized, cornet,
 bagnet, robust ×10, topk ×6, hybrid_anime_alexnet).
 
-## Joint proposal — interventions (pending George, 2026-09-05)
+## Interventions — APPROVED by George 2026-09-06 (noun, 4th Hive level, one card + intervention for top-k); implemented eval-side same day
 
 Wave 2c has behavior-altering levers that are neither weights nor readouts: top-k sparsification
 (topk_alexnet_{40,60,80}pct: torchvision weights unchanged, parameter-free TopK layers), LRM pass count
