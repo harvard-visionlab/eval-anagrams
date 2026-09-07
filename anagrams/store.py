@@ -718,6 +718,22 @@ class ResultsStore:
             load_kwargs = {"seed": seed} if seed is not None else {}
             model, _, vl_identity = load_model(model_or_spec, **load_kwargs)
             identity = ModelIdentity.from_visionlab(vl_identity, spec=model_or_spec)
+            # Unseeded random init (NONE-r<digest>) only has a config_id once the model is built: rebuild the
+            # spec from the post-load identity so the run records the realization, and re-check the cache.
+            if identity.resolved_config_id() != (spec.config_id, spec.config_id_source):
+                spec = self.make_spec(
+                    identity,
+                    dataset,
+                    transform,
+                    to_anagram_scores,
+                    seed=seed,
+                    precision=spec.execution.precision,
+                    dataset_revision=spec.dataset.revision,
+                )
+                if not force and spec.reusable:
+                    hit = self.find_run(dataset, identity.key, spec.eval_spec_id)
+                    if hit is not None:
+                        return self.load(dataset, *identity.key, run_id=hit.run_id)
         else:
             model = model_or_spec
 
