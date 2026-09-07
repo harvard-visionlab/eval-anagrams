@@ -27,7 +27,7 @@ HUMAN_CSS = 0.896
 HUMAN_ACC = 0.948
 
 COLORS = {
-    "bar": "#c3c2b7",        # neutral, for context models
+    "bar": "#c3c2b7",  # neutral, for context models
     "highlight": "#2a78d6",  # the model(s) you care about
     "series2": "#eb6834",
     "correct": "#008300",
@@ -49,8 +49,9 @@ def _reference_lines(ax, human, chance, x_text):
         ax.text(x_text, human + 0.01, f"human {human:.2f}", color=COLORS["text"], fontsize=8, ha="right", va="bottom")
     if chance is not None:
         ax.axhline(chance, color=COLORS["text"], linestyle=":", linewidth=1)
-        ax.text(x_text, chance + 0.01, f"chance {chance:.3f}", color=COLORS["text"], fontsize=8, ha="right",
-                va="bottom")
+        ax.text(
+            x_text, chance + 0.01, f"chance {chance:.3f}", color=COLORS["text"], fontsize=8, ha="right", va="bottom"
+        )
 
 
 def plot_css(
@@ -149,8 +150,15 @@ def plot_confusion(results: AnagramResults, normalize: bool = True, ax=None):
         for j in range(len(CLASSES)):
             v = cm[i, j]
             if v > 0:
-                ax.text(j, i, f"{v:.2f}" if normalize else f"{int(v)}", ha="center", va="center", fontsize=7,
-                        color="white" if v > (0.5 if normalize else cm.max() / 2) else COLORS["text"])
+                ax.text(
+                    j,
+                    i,
+                    f"{v:.2f}" if normalize else f"{int(v)}",
+                    ha="center",
+                    va="center",
+                    fontsize=7,
+                    color="white" if v > (0.5 if normalize else cm.max() / 2) else COLORS["text"],
+                )
     ax.set_xticks(range(len(CLASSES)))
     ax.set_yticks(range(len(CLASSES)))
     ax.set_xticklabels(CLASSES, rotation=45, ha="right", fontsize=8)
@@ -225,8 +233,11 @@ def show_pairs(
             ax = axes[r, 2 * c + pos]
             ax.imshow(ds[index_of[row.name]]["image"])
             ok = bool(row["correct"])
-            ax.set_title(f"{row['label']} → {row['pred']}  (dm {row['decision_margin']:+.2f})", fontsize=8,
-                         color=COLORS["correct"] if ok else COLORS["wrong"])
+            ax.set_title(
+                f"{row['label']} → {row['pred']}  (dm {row['decision_margin']:+.2f})",
+                fontsize=8,
+                color=COLORS["correct"] if ok else COLORS["wrong"],
+            )
     for ax in axes.ravel():
         ax.axis("off")
     fig.suptitle(f"{results.summary.get('model_name', '')}  pairs: {select}", fontsize=10, color=COLORS["text"])

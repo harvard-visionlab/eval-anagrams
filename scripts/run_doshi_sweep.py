@@ -36,13 +36,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--models", nargs="*", default=None,
-                    help="visionlab specs; default: list_models(tags=['Doshi2025'])")
+    ap.add_argument(
+        "--models", nargs="*", default=None, help="visionlab specs; default: list_models(tags=['Doshi2025'])"
+    )
     ap.add_argument("--datasets", nargs="*", default=["pairs-72", "pairs-1440"], choices=["pairs-72", "pairs-1440"])
     ap.add_argument("--local", action="store_true", help="local mirror only, no S3")
     ap.add_argument("--force", action="store_true")
-    ap.add_argument("--paper-pipeline", action="store_true",
-                    help="bilinear Resize((224,224)) + card stats; written to results/doshi_replication/ only")
+    ap.add_argument(
+        "--paper-pipeline",
+        action="store_true",
+        help="bilinear Resize((224,224)) + card stats; written to results/doshi_replication/ only",
+    )
     ap.add_argument("--batch-size", type=int, default=64)
     ap.add_argument("--num-workers", type=int, default=8)
     args = ap.parse_args()
@@ -66,8 +70,15 @@ def main():
         for spec in specs:
             try:
                 transform = paper_transform(spec) if args.paper_pipeline else None
-                res = store.run(spec, transform=transform, dataset=dataset, force=args.force,
-                                batch_size=args.batch_size, num_workers=args.num_workers, progress=False)
+                res = store.run(
+                    spec,
+                    transform=transform,
+                    dataset=dataset,
+                    force=args.force,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers,
+                    progress=False,
+                )
                 s = res.summary
                 print(f"[{dataset}] {s['model_id']:<40} css {s['css']:.3f} acc {s['acc']:.3f}")
             except Exception as e:  # keep sweeping; report at the end
@@ -116,6 +127,7 @@ def compare(store: ResultsStore, dataset: str, tag: str = "canonical"):
     ours = store.query(dataset=dataset)
     if ours.empty:
         return
+    ours = ours[~ours["legacy"].astype(bool)]  # pre-v2 records carry no spec ids; never compare them
     ours = ours[ours["readout_primary"].fillna(True).astype(bool)]
     names = paper_name_map(ours)
     if names.empty:

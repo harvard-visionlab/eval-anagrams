@@ -180,9 +180,22 @@ class AnagramResults:
 def _META_KEYS(summary: dict) -> set:
     """Keys in a saved summary that are bookkeeping (config, model, ...) rather than metrics."""
     metric_keys = {
-        "css", "css_ci_low", "css_ci_high", "acc", "foil_rate", "dm_mean", "dm_median", "dm_min",
-        "dm_max", "dm_kurtosis", "foil_margin_mean", "pair_margin_mean", "chance_acc", "chance_css",
-        "n_images", "n_pairs",
+        "css",
+        "css_ci_low",
+        "css_ci_high",
+        "acc",
+        "foil_rate",
+        "dm_mean",
+        "dm_median",
+        "dm_min",
+        "dm_max",
+        "dm_kurtosis",
+        "foil_margin_mean",
+        "pair_margin_mean",
+        "chance_acc",
+        "chance_css",
+        "n_images",
+        "n_pairs",
     }
     return set(summary) - metric_keys
 

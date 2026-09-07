@@ -13,11 +13,39 @@ CONFIGS = ("pairs-72", "pairs-1440")
 DEFAULT_CONFIG = "pairs-72"
 
 
-def load_anagrams(config: str = DEFAULT_CONFIG, revision: str | None = None) -> Dataset:
-    """HF Dataset (split 'test') for one config. Cached by `datasets` after first download."""
+def resolve_dataset_revision(repo_id: str = REPO_ID) -> str | None:
+    """Current commit sha of the HF dataset repo, or None when offline (then the run is unpinned)."""
+    try:
+        from huggingface_hub import HfApi
+
+        return HfApi().dataset_info(repo_id).sha
+    except Exception:
+        return None
+
+
+def load_anagrams(config: str = DEFAULT_CONFIG, revision: str | None = "pin") -> Dataset:
+    """HF Dataset (split 'test') for one config. Cached by `datasets` after first download.
+
+    revision="pin" (default) resolves the repo's current commit sha *before* loading and loads that exact
+    revision, so the data a run saw is recorded. Pass a sha to load a specific revision, or None for
+    the loader's default (unpinned). The resolved sha is available as `ds.revision`... see `pinned_revision`.
+    """
     if config not in CONFIGS:
         raise ValueError(f"config must be one of {CONFIGS}, got {config!r}")
-    return load_dataset(REPO_ID, config, split="test", revision=revision)
+    if revision == "pin":
+        revision = resolve_dataset_revision()
+    ds = load_dataset(REPO_ID, config, split="test", revision=revision)
+    ds.info.version = ds.info.version  # no-op; keeps datasets happy
+    _REVISIONS[id(ds)] = revision
+    return ds
+
+
+_REVISIONS: dict[int, str | None] = {}
+
+
+def pinned_revision(ds: Dataset) -> str | None:
+    """The revision `load_anagrams` loaded `ds` from (None if unpinned or unknown)."""
+    return _REVISIONS.get(id(ds))
 
 
 def metadata_frame(ds: Dataset) -> pd.DataFrame:

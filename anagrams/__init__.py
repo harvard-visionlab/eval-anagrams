@@ -24,7 +24,8 @@ from .scoring import (
     score_predictions,
     summarize,
 )
-from .store import EVAL_NAME, InterventionIdentity, ModelIdentity, ReadoutIdentity, ResultsStore, model_slug
+from .spec import DatasetRef, EvalSpec, Execution, scorer_signature, transform_signature
+from .store import EVAL_NAME, InterventionIdentity, ModelIdentity, ReadoutIdentity, ResultsStore, RunInfo, model_slug
 from .version import __version__
 from .zero_shot import ZeroShotClassifier, imagenet_class_names
 
@@ -58,6 +59,12 @@ __all__ = [
     "ModelIdentity",
     "ReadoutIdentity",
     "InterventionIdentity",
+    "RunInfo",
+    "EvalSpec",
+    "DatasetRef",
+    "Execution",
+    "transform_signature",
+    "scorer_signature",
     "model_slug",
     "EVAL_NAME",
     "ZeroShotClassifier",

@@ -202,8 +202,8 @@ from datasets import load_dataset
 ds = load_dataset("visionlab/visual-anagrams", "pairs-72", split="test")
 # ds = load_dataset("visionlab/visual-anagrams", "pairs-1440", split="test")
 row = ds[0]
-row["image"]                  # PIL 256x256 RGB
-ds.features["label"].names    # ['bear', 'bunny', ..., 'wolf']
+row["image"]  # PIL 256x256 RGB
+ds.features["label"].names  # ['bear', 'bunny', ..., 'wolf']
 ```
 
 ## Columns

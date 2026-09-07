@@ -20,9 +20,19 @@ def _meta():
     rows = []
     for pid, (o0, o1) in enumerate([("bear", "bunny"), ("cat", "frog")]):
         for pos, label in enumerate([o0, o1]):
-            rows.append(dict(filename=f"{pid:03d}_transform_{o0}_{o1}_object{pos}_{label}.png", anagram_id=f"{pid:03d}",
-                             pair_id=pid, variant=0, position=pos, label=label, foil=[o0, o1][1 - pos],
-                             object0=o0, object1=o1))
+            rows.append(
+                dict(
+                    filename=f"{pid:03d}_transform_{o0}_{o1}_object{pos}_{label}.png",
+                    anagram_id=f"{pid:03d}",
+                    pair_id=pid,
+                    variant=0,
+                    position=pos,
+                    label=label,
+                    foil=[o0, o1][1 - pos],
+                    object0=o0,
+                    object1=o1,
+                )
+            )
     return pd.DataFrame(rows)
 
 

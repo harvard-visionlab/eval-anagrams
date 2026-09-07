@@ -441,6 +441,14 @@ through `resolve` for every fixture. Skipped when models isn't installed.
 intervention placement → distinct eval_spec_id and distinct run dirs; identical spec → reuse of the complete
 run only; a simulated interrupted write (parquet present, no manifest) is never reused and is flagged.
 
+**Status 2026-09-07**: B1 done. B2–B4 implemented A-independently: `spec.py` (EvalSpec / eval_spec_id, structured
+transform signature, scorer id, pinned dataset revision, precision, seed; `reusable` flag), store rewritten around
+immutable `run=<id>` dirs with manifest.json written last, `list_runs/find_run/exists(eval_spec_id)`, legacy flagging,
+`query()` from manifests (latest per experiment), config_id passthrough with `eval-fallback` (never reusable) until A1
+lands. Release-gate tests: every spec component changes the id; interrupted write never complete; legacy never reused;
+force keeps both runs. 19 tests. Remaining: embed real models manifest/config_id when A1 ships; `NONE-s<seed>` tokens
+(regex already accepts); fixture-driven compat test (B5) when A7 ships.
+
 **Sequencing**: B1 now (done). A-independent parts next: revision pinning, transform signature, scorer id,
 run dirs + manifest-last, legacy flagging, release-gate test with a placeholder config block. Then, when A1/A3/A5/A7
 land: embed `models_manifest` + `config_id`, adopt `NONE-s<seed>` tokens, wire the fixture test. Then sweep.

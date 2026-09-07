@@ -33,8 +33,14 @@ class ZeroShotClassifier(nn.Module):
     logits = normalize(encode_image(x)) @ text_features.T * logit_scale + logit_bias
     """
 
-    def __init__(self, model: nn.Module, text_features: torch.Tensor, logit_scale: float = 1.0,
-                 logit_bias: float = 0.0, encode_fn: str = "encode_image"):
+    def __init__(
+        self,
+        model: nn.Module,
+        text_features: torch.Tensor,
+        logit_scale: float = 1.0,
+        logit_bias: float = 0.0,
+        encode_fn: str = "encode_image",
+    ):
         super().__init__()
         self.model = model
         self.encode_fn = encode_fn

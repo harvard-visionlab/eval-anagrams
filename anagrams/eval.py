@@ -12,9 +12,10 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
-from .data import DEFAULT_CONFIG, REPO_ID, AnagramDataset, load_anagrams, metadata_frame
+from .data import DEFAULT_CONFIG, REPO_ID, AnagramDataset, load_anagrams, metadata_frame, pinned_revision
 from .mapping import CLASSES, default_to_anagram_scores
 from .scoring import AnagramResults, build_predictions, score_predictions
+from .spec import scorer_signature, transform_signature
 
 
 def _resolve_device(model, device) -> torch.device:
@@ -64,7 +65,7 @@ def anagram_eval(
     device=None,
     num_workers: int = 4,
     progress: bool = True,
-    revision: str | None = None,
+    revision: str | None = "pin",
     **meta,
 ) -> AnagramResults:
     """Configural Shape Score eval (Doshi et al., NeurIPS 2025).
@@ -85,23 +86,36 @@ def anagram_eval(
     ds = load_anagrams(config, revision=revision)
     resolved_device = _resolve_device(model, device)
     scores = predict_scores(
-        model, transform, ds, to_anagram_scores=to_anagram_scores, batch_size=batch_size,
-        device=resolved_device, num_workers=num_workers, progress=progress,
+        model,
+        transform,
+        ds,
+        to_anagram_scores=to_anagram_scores,
+        batch_size=batch_size,
+        device=resolved_device,
+        num_workers=num_workers,
+        progress=progress,
     )
     predictions = build_predictions(metadata_frame(ds), scores)
     provenance = run_provenance(transform, resolved_device)
-    return score_predictions(predictions, dataset_repo=REPO_ID, dataset=config, **provenance, **meta)
+    spec_parts = {
+        "dataset_revision": pinned_revision(ds),
+        "preprocessing": transform_signature(transform),
+        "scorer": scorer_signature(to_anagram_scores),
+    }
+    return score_predictions(predictions, dataset_repo=REPO_ID, dataset=config, **spec_parts, **provenance, **meta)
 
 
 def run_provenance(transform, device) -> dict:
     """Facts about how a run was produced; recorded in the summary so stored results are self-describing."""
     device = torch.device(device)
     gpu = torch.cuda.get_device_name(device) if device.type == "cuda" else None
+    tf32 = bool(torch.backends.cudnn.allow_tf32 or torch.backends.cuda.matmul.allow_tf32) if gpu else False
     return {
         "transform": repr(transform),
         "run_device": str(device),
         "run_gpu": gpu,
-        "run_tf32": bool(torch.backends.cudnn.allow_tf32 or torch.backends.cuda.matmul.allow_tf32) if gpu else False,
+        "run_tf32": tf32,
+        "precision": "tf32" if tf32 else "fp32-strict",
         "run_torch": torch.__version__,
         "run_timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "run_user": getpass.getuser(),

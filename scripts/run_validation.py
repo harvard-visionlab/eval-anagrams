@@ -47,25 +47,30 @@ def paper_transform(mean=IMAGENET_MEAN, std=IMAGENET_STD, size=224):
 # ---------------------------------------------------------------------------------------------
 def build_alexnet():
     from torchvision.models import AlexNet_Weights, alexnet
+
     return alexnet(weights=AlexNet_Weights.IMAGENET1K_V1), paper_transform()
 
 
 def build_resnet50():
     from torchvision.models import ResNet50_Weights, resnet50
+
     return resnet50(weights=ResNet50_Weights.IMAGENET1K_V1), paper_transform()
 
 
 def build_vit_b_16():
     from torchvision.models import ViT_B_16_Weights, vit_b_16
+
     return vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1), paper_transform()
 
 
 def build_timm(name):
     def _build():
         import timm
+
         model = timm.create_model(name, pretrained=True)
         cfg = timm.data.resolve_data_config({}, model=model)
         return model, paper_transform(cfg["mean"], cfg["std"], size=cfg["input_size"][-1])
+
     return _build
 
 
@@ -73,6 +78,7 @@ def build_dinov2_lc(hub_name):
     def _build():
         model = torch.hub.load("facebookresearch/dinov2", hub_name)
         return model, paper_transform()
+
     return _build
 
 
@@ -90,6 +96,7 @@ def build_siglip(open_clip_name):
             # This double resize reproduces the paper's SigLIP numbers exactly (css .8194 on pairs-72).
             preprocess = T.Compose([T.Resize((224, 224)), T.ToTensor(), T.ToPILImage(), preprocess])
         return classifier, preprocess  # default: native 256 straight into open_clip's own preprocess
+
     return _build
 
 
@@ -121,10 +128,12 @@ def main():
     ap.add_argument("--batch-size", type=int, default=64)
     ap.add_argument("--num-workers", type=int, default=8)
     ap.add_argument("--force", action="store_true", help="recompute even if results exist")
-    ap.add_argument("--tf32", action="store_true",
-                    help="allow TF32 matmul/conv on Ampere+ GPUs (default: strict fp32)")
-    ap.add_argument("--paper-pipeline", action="store_true",
-                    help="emulate Doshi's SigLIP double-resize preprocessing (parity check, not the default)")
+    ap.add_argument("--tf32", action="store_true", help="allow TF32 matmul/conv on Ampere+ GPUs (default: strict fp32)")
+    ap.add_argument(
+        "--paper-pipeline",
+        action="store_true",
+        help="emulate Doshi's SigLIP double-resize preprocessing (parity check, not the default)",
+    )
     args = ap.parse_args()
 
     global PAPER_PIPELINE
@@ -145,6 +154,7 @@ def main():
             t0 = time.time()
             if (out_dir / "summary.json").exists() and not args.force:
                 from visionlab.evals.anagrams import AnagramResults
+
                 res = AnagramResults.load(out_dir)
                 status = "cached"
             else:
@@ -154,8 +164,16 @@ def main():
                     print(f"[{config}] {name}: BUILD FAILED: {type(e).__name__}: {e}", file=sys.stderr)
                     rows.append(dict(config=config, model=name, doshi_name=doshi_name, status=f"build failed: {e}"))
                     continue
-                res = anagram_eval(model, transform, config=config, batch_size=args.batch_size, device=device,
-                                   num_workers=args.num_workers, model_name=name, doshi_name=doshi_name)
+                res = anagram_eval(
+                    model,
+                    transform,
+                    config=config,
+                    batch_size=args.batch_size,
+                    device=device,
+                    num_workers=args.num_workers,
+                    model_name=name,
+                    doshi_name=doshi_name,
+                )
                 res.save(out_dir)
                 del model
                 gc.collect()
@@ -164,14 +182,26 @@ def main():
             s = res.summary
             doshi_css = ref["css"].get(doshi_name, float("nan"))
             doshi_acc = ref["acc"].get(doshi_name, float("nan"))
-            rows.append(dict(
-                config=config, model=name, doshi_name=doshi_name, status=status,
-                css=s["css"], doshi_css=doshi_css, delta_pairs=round((s["css"] - doshi_css) * s["n_pairs"], 1),
-                acc=s["acc"], doshi_acc=doshi_acc, delta_images=round((s["acc"] - doshi_acc) * s["n_images"], 1),
-                foil_rate=s["foil_rate"], dm_mean=s["dm_mean"],
-            ))
-            print(f"[{config}] {name:<22} css {s['css']:.3f} (doshi {doshi_css:.3f})  "
-                  f"acc {s['acc']:.3f} (doshi {doshi_acc:.3f})  [{status}]")
+            rows.append(
+                dict(
+                    config=config,
+                    model=name,
+                    doshi_name=doshi_name,
+                    status=status,
+                    css=s["css"],
+                    doshi_css=doshi_css,
+                    delta_pairs=round((s["css"] - doshi_css) * s["n_pairs"], 1),
+                    acc=s["acc"],
+                    doshi_acc=doshi_acc,
+                    delta_images=round((s["acc"] - doshi_acc) * s["n_images"], 1),
+                    foil_rate=s["foil_rate"],
+                    dm_mean=s["dm_mean"],
+                )
+            )
+            print(
+                f"[{config}] {name:<22} css {s['css']:.3f} (doshi {doshi_css:.3f})  "
+                f"acc {s['acc']:.3f} (doshi {doshi_acc:.3f})  [{status}]"
+            )
 
     table = pd.DataFrame(rows)
     args.out.mkdir(parents=True, exist_ok=True)
