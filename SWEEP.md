@@ -29,8 +29,13 @@ Credentials / caches:
 ```bash
 uv run pytest -q                                   # 28 tests incl. tests/test_models_compat.py (must NOT skip)
 uv run python scripts/run_validation.py --models alexnet resnet50 --configs pairs-72
+uv run python scripts/check_seed_reproducibility.py       # seeded random init reproducible ON THIS MACHINE
 ```
-Expected: compat test runs (not skipped) and passes; alexnet CSS 0.0556 / resnet50 0.1667 on pairs-72, exactly.
+Expected: compat test runs (not skipped) and passes; alexnet CSS 0.0556 / resnet50 0.1667 on pairs-72, exactly;
+the seed check prints OK for all four random-init baselines (same seed → identical state digest and bit-identical
+outputs; different seed differs). George's rule: verify this on the machine you run on, never trust another
+machine's tests. The store also enforces it per run: `identity.verify_state(model)` after every random-init load,
+and a stored random-init run is reused only if its recorded init digest equals the freshly built one.
 The store's own gate is enforced in code: a run is reused only if a complete run with the identical
 `eval_spec_id` exists and the spec is fully known (models config_id, pinned dataset revision, recognized
 transform, default scorer, strict fp32). Anything else adds a new run; nothing is ever overwritten.

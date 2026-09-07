@@ -498,11 +498,22 @@ class ResultsStore:
             runs.append(RunInfo(dataset, model_id, readout, intervention, "legacy", complete=False, legacy=True))
         return runs
 
-    def find_run(self, dataset: str, key: tuple[str, str, str], eval_spec_id: str) -> RunInfo | None:
-        """Newest complete run at `key` whose eval_spec_id matches exactly."""
+    def find_run(
+        self, dataset: str, key: tuple[str, str, str], eval_spec_id: str, init_digest: str | None = None
+    ) -> RunInfo | None:
+        """Newest complete run at `key` whose eval_spec_id matches exactly. For random-init models pass the
+        freshly built `init_digest`: a stored run is reused only if its recorded init digest is identical
+        (a differing digest means the initialization drifted, so it is a different experiment)."""
         for run in self.list_runs(dataset, *key):
-            if run.complete and run.eval_spec_id == eval_spec_id:
-                return run
+            if not (run.complete and run.eval_spec_id == eval_spec_id):
+                continue
+            if init_digest is not None:
+                stored = (((run.manifest or {}).get("models_manifest") or {}).get("provenance") or {}).get(
+                    "init_digest"
+                )
+                if stored != init_digest:
+                    continue
+            return run
         return None
 
     def exists(
@@ -719,20 +730,26 @@ class ResultsStore:
             identity, dataset, transform, to_anagram_scores, seed=seed, precision="tf32" if tf32 else "fp32-strict"
         )
 
-        if not force and spec.reusable:
+        # Random init: reuse is decided after the model is built (the init digest must match too).
+        if not force and spec.reusable and not identity.is_random_init:
             hit = self.find_run(dataset, identity.key, spec.eval_spec_id)
             if hit is not None:
                 return self.load(dataset, *identity.key, run_id=hit.run_id)
 
+        init_digest = None
         if isinstance(model_or_spec, str):
             from visionlab.models import load_model
 
             load_kwargs = {"seed": seed} if seed is not None else {}
             model, _, vl_identity = load_model(model_or_spec, **load_kwargs)
             identity = ModelIdentity.from_visionlab(vl_identity, spec=model_or_spec)
-            # Unseeded random init (NONE-r<digest>) only has a config_id once the model is built: rebuild the
-            # spec from the post-load identity so the run records the realization, and re-check the cache.
-            if identity.resolved_config_id() != (spec.config_id, spec.config_id_source):
+            if identity.is_random_init:
+                # George (2026-09-07): verify seeded init on THIS machine; never trust the models repo's tests.
+                # verify_state raises if the built state's digest != the recorded init digest (init impl drift).
+                if hasattr(vl_identity, "verify_state"):
+                    vl_identity.verify_state(model)
+                init_digest = ((identity.manifest or {}).get("provenance") or {}).get("init_digest")
+                # config_id may only now be known (unseeded realization): rebuild the spec from the built identity
                 spec = self.make_spec(
                     identity,
                     dataset,
@@ -742,12 +759,14 @@ class ResultsStore:
                     precision=spec.execution.precision,
                     dataset_revision=spec.dataset.revision,
                 )
-                if not force and spec.reusable:
-                    hit = self.find_run(dataset, identity.key, spec.eval_spec_id)
+                if not force and spec.reusable and init_digest:
+                    hit = self.find_run(dataset, identity.key, spec.eval_spec_id, init_digest=init_digest)
                     if hit is not None:
                         return self.load(dataset, *identity.key, run_id=hit.run_id)
         else:
             model = model_or_spec
+        if init_digest:
+            eval_kwargs.setdefault("init_digest", init_digest)
 
         if seed is not None:
             eval_kwargs.setdefault("run_seed", seed)

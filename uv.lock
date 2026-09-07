@@ -3906,7 +3906,7 @@ dev = [
 [[package]]
 name = "visionlab-models"
 version = "0.1.0"
-source = { git = "https://github.com/harvard-visionlab/models.git#2b8822480373adb7783a45bb9cbda72cc985c021" }
+source = { git = "https://github.com/harvard-visionlab/models.git#9540bb3206e883199b134a9312e2124d98ec5862" }
 dependencies = [
     { name = "boto3" },
     { name = "huggingface-hub" },
