@@ -378,3 +378,69 @@ dashboards filter on it. Otherwise per-layer results plot CSS vs `readout_layer`
 **Open questions for the models agent**: spec syntax for backbone+readout; where identity code lives;
 whether prototype readouts are 1000-way (ImageNet classes → standard 1000→9 map) or 9-way (category
 prototypes) — both work with the eval's default hook; which readouts get `primary`.
+
+
+## Identity contract v2 — eval side (part B) [2026-09-07; from GPT-Astra's audit, accepted by George in the
+models session; models PLAN.md "Stage 4.5"]
+
+Gate: the 89-model sweep waits until models (A) and eval (B) both land. Old cache keys could return the wrong
+experiment; missing provenance can't be reconstructed later.
+
+**B1 adapter bug — DONE.** models returns `readout=None` for `@none` (raw backbone) and a `head`-typed readout for
+native classifiers; our adapter mapped both to `head`. Now: None → `ReadoutIdentity("none","none")`, slug `none`;
+`head` → native head. Regression test added; will be covered again by the cross-repo fixture test (B5).
+
+**Design (assumptions stated; George to object if wrong)**
+
+Four ids, as in Astra's levels:
+- `config_id` (models, A1): sha256 of `manifest.configuration`. Stored verbatim; never recomputed here.
+- `eval_spec_id` (ours): sha256 of canonical JSON of the *hashed* evaluation spec:
+  `{schema: "visionlab-evals/anagrams/spec@1", eval_name, eval_version, config_id, dataset: {repo, config, revision},
+   preprocessing: <transform signature>, output_map: {classes, imagenet_class_map, reduction} @ version,
+   scoring: "css@1", execution: {seed, precision: fp32-strict|tf32}}`.
+  Device *type* is provenance, not spec (fp32 CPU == fp32 GPU by construction; TF32 is in `precision`).
+- `run_id`: `<utc-timestamp>-<8 hex of sha256(eval_spec_id + host + pid + nonce)>`; one per execution.
+- Artifact ids: parquet/json sha256 recorded in the completion manifest.
+
+Dataset revision **pinned at load**: `load_anagrams(config)` resolves the HF commit sha before loading and
+passes `revision=sha` to `load_dataset`; recorded in the spec (today it's looked up at save time — wrong order).
+
+Transform signature: structured when possible — walk a torchvision `Compose` and canonicalize
+`Resize(size, interpolation, antialias)`, `CenterCrop(size)`, `Normalize(mean, std)`, `ToTensor`, `OpenImage`;
+anything unrecognized → `{"kind": "repr", "value": repr(t)}` and the spec is marked `preprocessing_exact=false`
+(stored, never reused as a cache hit — "unknown settings never guessed").
+
+Scorer identity: default hook → `imagenet_class_map@1:max`; `identity9`; a user callable → `custom:<qualname>`
+with `scorer_exact=false` (stored, not reusable).
+
+**Layout — runs are immutable, under the existing Hive tree (assumption: 6th level `run=`):**
+```
+.../model=<slug>/readout=<slug>/intervention=<slug>/run=<run_id>/results.parquet
+                                                                 summary.json
+                                                                 manifest.json     <- written LAST = completion marker
+```
+- `manifest.json`: `{schema, eval_spec (hashed block) + eval_spec_id, models_manifest (verbatim, incl. config_id),
+  provenance (torch/cuda/package git sha/device/host/user/timestamps), artifacts: {results.parquet: sha256, ...},
+  status: "complete"}`. A run dir without manifest.json is incomplete and is ignored by readers.
+- `summary.json` and every parquet row gain `config_id`, `eval_spec_id`, `run_id`.
+- Cache semantics: `store.run(spec)` computes the eval_spec_id *before* loading weights (resolve + transform
+  signature + pinned dataset revision) and reuses a run only if a **complete** run with the identical eval_spec_id
+  exists under that Hive address. `force=True` → new run dir; the old run is preserved. Nothing is ever overwritten.
+- `query()` reads manifests; returns one row per complete run, `legacy=True` for pre-v2 records (no manifest) which
+  are never cache hits. Optional `latest=True` collapses to the newest complete run per (address, eval_spec_id).
+- DuckDB: glob gains `run=*/`; `run` becomes a partition column; docs say to join/ filter on completed runs via
+  `query()` (or ignore incomplete dirs, which are rare and short-lived).
+- The one legacy object in the bucket (alexnet, mine, 2026-09-06) → delete rather than flag (assumption).
+
+**B5 compat test**: `tests/test_models_compat.py` imports `visionlab.models.identity` golden fixtures (A7) and
+runs them through `ModelIdentity.from_visionlab` (and the manifest reader), asserting slugs, result keys,
+config_id passthrough, `@none` → `none`, `NONE-s<seed>` → weights_id, and that `str(identity)` round-trips
+through `resolve` for every fixture. Skipped when models isn't installed.
+
+**Release gate** (integration test, local store): changing seed / preprocessing / dataset revision / readout /
+intervention placement → distinct eval_spec_id and distinct run dirs; identical spec → reuse of the complete
+run only; a simulated interrupted write (parquet present, no manifest) is never reused and is flagged.
+
+**Sequencing**: B1 now (done). A-independent parts next: revision pinning, transform signature, scorer id,
+run dirs + manifest-last, legacy flagging, release-gate test with a placeholder config block. Then, when A1/A3/A5/A7
+land: embed `models_manifest` + `config_id`, adopt `NONE-s<seed>` tokens, wire the fixture test. Then sweep.

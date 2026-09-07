@@ -155,8 +155,12 @@ class _FakeIntervention:
     kind, params, spec = "topk", {"k": 0.6}, "topk:k=0.6"
 
 
+class _FakeHeadReadout:
+    type, hashid, layer, tag, n_classes, train_data, primary = "head", "3f9a1c2d", None, "head", 1000, None, True
+
+
 class _FakeVisionlabIdentityWithIntervention(_FakeVisionlabIdentity):
-    readout = None
+    readout = _FakeHeadReadout()  # native classifier head (models: type 'head'); None would mean raw backbone
     intervention = _FakeIntervention()
 
 
@@ -164,3 +168,16 @@ def test_identity_from_visionlab_with_intervention():
     ident = ModelIdentity.from_visionlab(_FakeVisionlabIdentityWithIntervention())
     assert ident.readout_slug == "head" and ident.intervention_slug == "topk__k0.6"
     assert ident.as_dict()["intervention_spec"] == "topk:k=0.6"
+
+
+class _FakeVisionlabRawBackbone(_FakeVisionlabIdentity):
+    readout = None  # models returns None for '@none' (raw backbone)
+
+
+def test_adapter_maps_raw_backbone_to_none_not_head():
+    ident = ModelIdentity.from_visionlab(_FakeVisionlabRawBackbone())
+    assert ident.readout_slug == "none" and ident.key[1] == "none"
+    assert ident.as_dict()["readout_type"] == "none" and ident.as_dict()["readout_id"] == "none"
+    assert ReadoutIdentity("none", "none").slug == "none"
+    with pytest.raises(ValueError):
+        ReadoutIdentity("none", "a1b2c3d4")

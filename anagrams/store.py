@@ -52,7 +52,7 @@ IDENTITY_COLS = ["eval_name", "eval_version", "dataset", "model_id", "model_spec
                  "weights_id", "readout_type", "readout_layer", "readout_id", "readout_spec", "readout_n_classes",
                  "readout_train_data", "readout_primary", "intervention_kind", "intervention_params", "intervention_id",
                  "intervention_spec"]
-READOUT_TYPES = ("head", "probe", "prototypes", "zeroshot")
+READOUT_TYPES = ("head", "probe", "prototypes", "zeroshot", "none")  # none = raw backbone (features, no class scores)
 NO_INTERVENTION = {"intervention_kind": "none", "intervention_params": "{}", "intervention_id": "none",
                    "intervention_spec": "none"}
 FILES = ("summary.json", "results.parquet")
@@ -85,13 +85,16 @@ class ReadoutIdentity:
     def __post_init__(self):
         if self.readout_type not in READOUT_TYPES:
             raise ValueError(f"readout_type must be one of {READOUT_TYPES}, got {self.readout_type!r}")
-        if not _WEIGHTS_ID_OK.match(self.readout_id):
+        if self.readout_type == "none":
+            if self.readout_id != "none":
+                raise ValueError("a raw-backbone readout ('none') has readout_id 'none'")
+        elif not _WEIGHTS_ID_OK.match(self.readout_id):
             raise ValueError(f"readout_id must be sha256[:8], got {self.readout_id!r}")
 
     @property
     def slug(self) -> str:
-        if self.readout_type == "head":
-            return "head"
+        if self.readout_type in ("head", "none"):
+            return self.readout_type
         layer = _layer_slug(self.readout_layer) if self.readout_layer else None
         parts = [self.readout_type] + ([layer] if layer else []) + [self.readout_id]
         return "__".join(parts)
@@ -212,9 +215,13 @@ class ModelIdentity:
     @classmethod
     def from_visionlab(cls, identity, spec: str | None = None) -> "ModelIdentity":
         """Adapt a `visionlab.models.ModelIdentity` (source, name, hashid, alias, optional readout / intervention)."""
-        readout = None
+        # models: readout None = raw backbone (`@none`, no class scores); type 'head' = native classifier
         ro = getattr(identity, "readout", None)
-        if ro is not None and getattr(ro, "type", "head") != "head":
+        if ro is None:
+            readout = ReadoutIdentity("none", "none", readout_spec="none", readout_primary=False)
+        elif getattr(ro, "type", "head") == "head":
+            readout = None  # native head
+        else:
             readout = ReadoutIdentity(
                 readout_type=ro.type, readout_id=ro.hashid, readout_layer=getattr(ro, "layer", None),
                 readout_spec=getattr(ro, "tag", None), readout_n_classes=getattr(ro, "n_classes", None),
