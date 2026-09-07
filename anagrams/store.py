@@ -263,8 +263,13 @@ class ModelIdentity:
         }
 
     def resolved_config_id(self) -> tuple[str, str]:
-        """(config_id, source). Fallback = sha256 of our identity columns, flagged so it never yields a cache hit."""
+        """(config_id, source). Sources other than 'models-manifest' never yield a cache hit:
+        'eval-fallback' (no models config_id; sha256 of our identity columns) and
+        'models-manifest-unvalidated' (models loaded a dependency outside its validated range)."""
         if self.config_id:
+            provenance = (self.manifest or {}).get("provenance", {})
+            if provenance.get("impl_validated", True) is False:
+                return self.config_id, "models-manifest-unvalidated"
             return self.config_id, "models-manifest"
         return sha256_hex(canonical_json(self.as_dict())), "eval-fallback"
 
@@ -299,11 +304,18 @@ class ModelIdentity:
         typed = spec or getattr(identity, "spec", None) or getattr(identity, "alias", None)
         names = getattr(identity, "collection_names", None) or {}
         manifest = getattr(identity, "manifest", None)
-        manifest = manifest() if callable(manifest) else manifest
+        try:
+            manifest = manifest() if callable(manifest) else manifest
+        except Exception:  # e.g. unrealized random init: no configuration yet
+            manifest = None
+        # weights token from models' model_id ('source/name:<token>'): random init carries the seed /
+        # realization there ('NONE-s0', 'NONE-r<digest>') while `hashid` stays 'NONE'
+        model_id = getattr(identity, "model_id", None)
+        weights_id = model_id.rsplit(":", 1)[-1] if isinstance(model_id, str) and ":" in model_id else identity.hashid
         return cls(
             identity.source,
             identity.name,
-            identity.hashid,
+            weights_id,
             model_spec=typed,
             readout=readout,
             intervention=intervention,
