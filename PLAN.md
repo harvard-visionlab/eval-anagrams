@@ -275,7 +275,9 @@ Design the hook interface now so both drop in later; decide default + report bot
 - [x] models wave 2c (73f84b9c): Doshi2025 at 89/91 loadable (only hybrid_anime_alexnet_sgd_lr005 missing; 'human'
   is not a model). Stylized (rgeirhos/*), robust (madrylab/resnet50 ×10), bagnets, dicarlo/cornet_* (GPL dep via
   `[cornet]` extra), visionlab/alexnet_lrm3 (+lrm:passes=1/3). Our `models` extra now = visionlab-models[cornet,clip].
-- [ ] phase 2 FULL sweep (89 models) on the GPU box: canonical → store; --paper-pipeline → replication csv
+- [x] identity contract v2 complete on both sides (models 8e1da9f; eval c1fe346+): real config_ids flow, identical spec
+  reuses the stored run, compat test live (28 tests). torchvision/timm pinned to models' validated ranges.
+- [ ] phase 2 FULL sweep (89 models) on the GPU box — instructions in SWEEP.md; George: not on the CPU machine
 - [x] known: paper's robust_resnet50 eps0.25 row used eps0.1 weights (Dropbox file == Madry eps0.1, hash 3298f8cf);
   collection entry points at true eps0.25 (26c9eefb) → expect that row to differ — documented in README
 - [ ] step 7: SSL readouts are now the models repo's job (probe/prototype cards); eval side is done

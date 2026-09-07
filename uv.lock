@@ -3880,11 +3880,11 @@ requires-dist = [
     { name = "protobuf", marker = "extra == 'validation'" },
     { name = "pyarrow" },
     { name = "sentencepiece", marker = "extra == 'validation'" },
-    { name = "timm", marker = "extra == 'validation'", specifier = ">=1.0" },
+    { name = "timm", marker = "extra == 'validation'", specifier = ">=1.0.29,<1.0.30" },
     { name = "torch", marker = "platform_machine != 'x86_64' or sys_platform != 'linux'", specifier = ">=2.1.0", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", specifier = ">=2.1.0", index = "https://download.pytorch.org/whl/cu126" },
-    { name = "torchvision", marker = "platform_machine != 'x86_64' or sys_platform != 'linux'", specifier = ">=0.16.0", index = "https://download.pytorch.org/whl/cpu" },
-    { name = "torchvision", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", specifier = ">=0.16.0", index = "https://download.pytorch.org/whl/cu126" },
+    { name = "torchvision", marker = "platform_machine != 'x86_64' or sys_platform != 'linux'", specifier = ">=0.28.0,<0.29", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torchvision", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", specifier = ">=0.28.0,<0.29", index = "https://download.pytorch.org/whl/cu126" },
     { name = "tqdm" },
     { name = "transformers", marker = "extra == 'validation'", specifier = ">=4.40" },
     { name = "visionlab-models", extras = ["clip", "cornet"], marker = "extra == 'models'", git = "https://github.com/harvard-visionlab/models.git" },
@@ -3906,7 +3906,7 @@ dev = [
 [[package]]
 name = "visionlab-models"
 version = "0.1.0"
-source = { git = "https://github.com/harvard-visionlab/models.git#73f84b9c1228d422e1539c02222a1a34eec6d8f3" }
+source = { git = "https://github.com/harvard-visionlab/models.git#8e1da9f308b482276c71cbc9dce5b9a3ce848f97" }
 dependencies = [
     { name = "boto3" },
     { name = "huggingface-hub" },
@@ -3916,6 +3916,7 @@ dependencies = [
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
     { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "opencv-python-headless" },
+    { name = "packaging" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pandas", version = "3.0.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pillow" },

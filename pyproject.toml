@@ -13,9 +13,10 @@ authors = [
 requires-python = ">=3.10,<3.13"
 
 dependencies = [
-    # Torch stack (eval runner)
+    # Torch stack (eval runner). torchvision pinned to visionlab.models' validated range (models/impl.py);
+    # outside it models refuses to load (or, with VISIONLAB_MODELS_ALLOW_UNVALIDATED=1, runs are non-reusable).
     "torch>=2.1.0",
-    "torchvision>=0.16.0",
+    "torchvision>=0.28.0,<0.29",
 
     # Dataset (HuggingFace)
     "datasets>=3.0",
@@ -38,7 +39,8 @@ dependencies = [
 # [cornet] pulls dicarlolab/CORnet (GPL-3.0) as a runtime dependency for the CORnet cards; [clip] for open_clip towers
 models = ["visionlab-models[cornet,clip]@git+https://github.com/harvard-visionlab/models.git"]
 # phase-1 validation sweep (timm heads, SigLIP zero-shot via open_clip)
-validation = ["timm>=1.0", "open_clip_torch>=2.24", "transformers>=4.40", "sentencepiece", "protobuf"]  # SigLIP2 tokenizer needs transformers
+# timm pinned to visionlab.models' validated range; transformers/sentencepiece/protobuf for the SigLIP2 tokenizer
+validation = ["timm>=1.0.29,<1.0.30", "open_clip_torch>=2.24", "transformers>=4.40", "sentencepiece", "protobuf"]
 
 [dependency-groups]
 dev = [
