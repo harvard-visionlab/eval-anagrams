@@ -13,7 +13,7 @@ uv run python -c "import torch, torchvision, timm; print(torch.cuda.is_available
 ```
 
 Pins that matter (all in `uv.lock`; do not loosen):
-- `visionlab-models` @ git `8e1da9f` or later (identity contract v2: config_id, manifests, fixtures)
+- `visionlab-models` @ git `2b88224` or later (identity contract v2; xformers pulled in on linux x86_64 for vendored DINOv2 — execution environment only, recorded in manifest provenance, config_ids unchanged)
 - `torchvision >=0.28,<0.29`, `timm ==1.0.29`, `cornet 0.1.0` — the ranges `visionlab.models` has validated.
   Outside them `load_model` raises `UnvalidatedDependencyError`. Fix the env; do **not** set
   `VISIONLAB_MODELS_ALLOW_UNVALIDATED=1` (such runs are marked non-reusable and are not official results).
