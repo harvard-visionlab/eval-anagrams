@@ -8,11 +8,31 @@ Doshi, Fel, Konkle & Alvarez (NeurIPS 2025), arXiv:2507.00493.
     results.predictions           # per-image table incl. decision margins
 """
 
-from .data import CONFIGS, DEFAULT_CONFIG, REPO_ID, AnagramDataset, load_anagrams, metadata_frame
+from .data import (
+    CONFIGS,
+    DEFAULT_CONFIG,
+    REPO_ID,
+    AnagramDataset,
+    load_anagrams,
+    metadata_frame,
+)
 from .eval import anagram_eval, predict_scores
 from .legacy import legacy_metrics
-from .mapping import CLASSES, IMAGENET_CLASS_MAP, default_to_anagram_scores, imagenet_to_anagram_scores
-from .plot import HUMAN_ACC, HUMAN_CSS, plot_acc_vs_css, plot_confusion, plot_css, plot_margins, show_pairs
+from .mapping import (
+    CLASSES,
+    IMAGENET_CLASS_MAP,
+    default_to_anagram_scores,
+    imagenet_to_anagram_scores,
+)
+from .plot import (
+    HUMAN_ACC,
+    HUMAN_CSS,
+    plot_acc_vs_css,
+    plot_confusion,
+    plot_css,
+    plot_margins,
+    show_pairs,
+)
 from .scoring import (
     CHANCE_ACC,
     CHANCE_CSS,
@@ -25,9 +45,21 @@ from .scoring import (
     summarize,
 )
 from .spec import DatasetRef, EvalSpec, Execution, scorer_signature, transform_signature
-from .store import EVAL_NAME, InterventionIdentity, ModelIdentity, ReadoutIdentity, ResultsStore, RunInfo, model_slug
 from .version import __version__
 from .zero_shot import ZeroShotClassifier, imagenet_class_names
+
+EVAL_NAME = "anagrams"
+# lab extra (visionlab-model-evals): results store + identity, imported on first use so anagram_eval works without it
+_STORE_NAMES = {"InterventionIdentity", "ModelIdentity", "ReadoutIdentity", "ResultsStore", "RunInfo", "model_slug"}
+
+
+def __getattr__(name):
+    if name in _STORE_NAMES:
+        from . import store
+
+        return getattr(store, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "__version__",

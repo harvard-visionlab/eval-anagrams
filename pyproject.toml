@@ -34,7 +34,13 @@ dependencies = [
     "tqdm",
 ]
 
+[project.entry-points."visionlab.evals.evals"]
+# `model eval anagrams <spec>` (needs the lab extra: visionlab-model-evals)
+anagrams = "visionlab.evals.anagrams.plugin:EVAL"
+
 [project.optional-dependencies]
+# lab: results store, model sources and the `model eval` CLI (harvard-visionlab/model-evals)
+lab = ["visionlab-model-evals"]
 # lab members: load models via visionlab.models
 # [cornet] pulls dicarlolab/CORnet (GPL-3.0) as a runtime dependency for the CORnet cards; [clip] for open_clip towers
 models = ["visionlab-models[cornet,clip]@git+https://github.com/harvard-visionlab/models.git"]
@@ -52,9 +58,11 @@ dev = [
     "ipywidgets",
     "jupyterlab",
     "duckdb",   # querying the Hive-partitioned results tree in notebooks
+    "visionlab-model-evals",
 ]
 
 [tool.uv.sources]
+visionlab-model-evals = { git = "https://github.com/harvard-visionlab/model-evals.git" }
 torch = [
     { index = "pytorch-cu126", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
     { index = "pytorch-cpu", marker = "sys_platform != 'linux' or platform_machine != 'x86_64'" },

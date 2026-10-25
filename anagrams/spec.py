@@ -149,6 +149,14 @@ class EvalSpec:
         return sha256_hex(canonical_json(self.hashed()))
 
     @property
+    def dataset_name(self) -> str:
+        return self.dataset.config
+
+    @property
+    def dataset_revision(self) -> str | None:
+        return self.dataset.revision
+
+    @property
     def reusable(self) -> bool:
         """Can a stored run with this id stand in for a new run? Only if every component is exactly known."""
         return (

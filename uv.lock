@@ -3844,6 +3844,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+lab = [
+    { name = "visionlab-model-evals" },
+]
 models = [
     { name = "visionlab-models", extra = ["clip", "cornet"] },
 ]
@@ -3865,6 +3868,7 @@ dev = [
     { name = "nbstripout" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "visionlab-model-evals" },
 ]
 
 [package.metadata]
@@ -3887,9 +3891,10 @@ requires-dist = [
     { name = "torchvision", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", specifier = ">=0.28.0,<0.29", index = "https://download.pytorch.org/whl/cu126" },
     { name = "tqdm" },
     { name = "transformers", marker = "extra == 'validation'", specifier = ">=4.40" },
+    { name = "visionlab-model-evals", marker = "extra == 'lab'", git = "https://github.com/harvard-visionlab/model-evals.git" },
     { name = "visionlab-models", extras = ["clip", "cornet"], marker = "extra == 'models'", git = "https://github.com/harvard-visionlab/models.git" },
 ]
-provides-extras = ["models", "validation"]
+provides-extras = ["lab", "models", "validation"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -3901,6 +3906,21 @@ dev = [
     { name = "nbstripout" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "visionlab-model-evals", git = "https://github.com/harvard-visionlab/model-evals.git" },
+]
+
+[[package]]
+name = "visionlab-model-evals"
+version = "0.1.0"
+source = { git = "https://github.com/harvard-visionlab/model-evals.git#90f2c0700d8209fc5069b927f915a56ffbab9391" }
+dependencies = [
+    { name = "boto3" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "pandas", version = "3.0.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pyarrow" },
 ]
 
 [[package]]

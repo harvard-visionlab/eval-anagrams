@@ -15,6 +15,7 @@ git clone https://github.com/harvard-visionlab/eval-anagrams.git
 cd eval-anagrams
 uv sync --dev                       # + --extra validation (timm, open_clip) for scripts/run_validation.py
                                     # + --extra models     (visionlab.models incl. cornet/clip) for lab model loading + sweeps
+                                    # + --extra lab        (model-evals: results store, model sources, `model eval` CLI)
 ```
 
 Torch resolves to the CUDA 12.6 build on Linux x86_64 and CPU builds elsewhere (see `pyproject.toml`).
@@ -85,6 +86,14 @@ uv run python scripts/run_validation.py --configs pairs-72 pairs-1440
 ```
 
 ## Results store (lab)
+
+The store, model identity and model sources come from [model-evals](https://github.com/harvard-visionlab/model-evals)
+(`--extra lab`). This repo registers the eval there (`anagrams/plugin.py`), so any installed source works:
+
+```bash
+uv run model eval anagrams pytorch/alexnet:DEFAULT            # visionlab.models
+uv run model eval anagrams <rearing id> --dataset pairs-1440  # model-rearing (its source installed)
+```
 
 Results live in `s3://visionlab-evals` as a Hive-partitioned tree of **immutable runs**, mirrored at
 `~/.cache/visionlab/evals` (`VISIONLAB_EVALS_CACHE`, `VISIONLAB_EVALS_BUCKET` to override):
@@ -172,6 +181,8 @@ fp32. Two things to expect when reproducing the full sweep:
 uv run pytest            # unit tests + a CPU end-to-end test (downloads the 18 MB pairs-72 config)
 uv run ruff check anagrams tests scripts --line-length 120
 ```
+
+Changing model-evals at the same time: `uv pip install -e ../model-evals` (undone by the next `uv sync`).
 
 Notebooks are jupytext-paired (`.ipynb` + `.py:percent`); configure output stripping once per clone:
 
