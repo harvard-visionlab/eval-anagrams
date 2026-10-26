@@ -3891,8 +3891,8 @@ requires-dist = [
     { name = "torchvision", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", specifier = ">=0.28.0,<0.29", index = "https://download.pytorch.org/whl/cu126" },
     { name = "tqdm" },
     { name = "transformers", marker = "extra == 'validation'", specifier = ">=4.40" },
-    { name = "visionlab-model-evals", marker = "extra == 'lab'", git = "ssh://git@github.com/harvard-visionlab/model-evals.git?rev=90f2c0700d8209fc5069b927f915a56ffbab9391" },
-    { name = "visionlab-models", extras = ["clip", "cornet"], marker = "extra == 'models'", git = "ssh://git@github.com/harvard-visionlab/models.git?rev=9540bb3206e883199b134a9312e2124d98ec5862" },
+    { name = "visionlab-model-evals", marker = "extra == 'lab'", git = "https://github.com/harvard-visionlab/model-evals.git?rev=90f2c0700d8209fc5069b927f915a56ffbab9391" },
+    { name = "visionlab-models", extras = ["clip", "cornet"], marker = "extra == 'models'", git = "https://github.com/harvard-visionlab/models.git?rev=9540bb3206e883199b134a9312e2124d98ec5862" },
 ]
 provides-extras = ["lab", "models", "validation"]
 
@@ -3906,13 +3906,13 @@ dev = [
     { name = "nbstripout" },
     { name = "pytest" },
     { name = "ruff" },
-    { name = "visionlab-model-evals", git = "ssh://git@github.com/harvard-visionlab/model-evals.git?rev=90f2c0700d8209fc5069b927f915a56ffbab9391" },
+    { name = "visionlab-model-evals", git = "https://github.com/harvard-visionlab/model-evals.git?rev=90f2c0700d8209fc5069b927f915a56ffbab9391" },
 ]
 
 [[package]]
 name = "visionlab-model-evals"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/harvard-visionlab/model-evals.git?rev=90f2c0700d8209fc5069b927f915a56ffbab9391#90f2c0700d8209fc5069b927f915a56ffbab9391" }
+source = { git = "https://github.com/harvard-visionlab/model-evals.git?rev=90f2c0700d8209fc5069b927f915a56ffbab9391#90f2c0700d8209fc5069b927f915a56ffbab9391" }
 dependencies = [
     { name = "boto3" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -3926,7 +3926,7 @@ dependencies = [
 [[package]]
 name = "visionlab-models"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/harvard-visionlab/models.git?rev=9540bb3206e883199b134a9312e2124d98ec5862#9540bb3206e883199b134a9312e2124d98ec5862" }
+source = { git = "https://github.com/harvard-visionlab/models.git?rev=9540bb3206e883199b134a9312e2124d98ec5862#9540bb3206e883199b134a9312e2124d98ec5862" }
 dependencies = [
     { name = "boto3" },
     { name = "huggingface-hub" },

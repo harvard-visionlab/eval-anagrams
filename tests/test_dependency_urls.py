@@ -1,14 +1,12 @@
-"""Private lab repos are pinned over ssh: an https pin needs a GitHub token, which the cluster and the workstation
-containers do not have (model-rearing pinned model-evals over https until 2026-10-26 and machina could not install its venv).
-Public lab repos may use https, so anyone can install them without credentials."""
+"""Lab repos are pinned over https (lab standard, George 2026-10-26): machines authenticate with the GitHub CLI
+(`gh auth login` + `gh auth setup-git`); ssh pins fail for members without keys."""
 
 import re
 import tomllib
 from pathlib import Path
 
 PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
-PUBLIC = {"slipstream", "datasets"}  # github.com/harvard-visionlab repos readable without credentials (checked 2026-10-26)
-LAB_HTTPS = re.compile(r"https://github\.com/harvard-visionlab/(?P<repo>[A-Za-z0-9._-]+?)(?:\.git)?(?:[@/#]|$)")
+LAB_SSH = re.compile(r"(ssh://)?git@github\.com[:/]harvard-visionlab/")
 
 
 def _urls(doc: dict) -> list[str]:
@@ -21,23 +19,21 @@ def _urls(doc: dict) -> list[str]:
     return deps
 
 
-def https_private_pins(doc: dict) -> list[str]:
-    return [u for u in _urls(doc) if (m := LAB_HTTPS.search(u)) and m["repo"] not in PUBLIC]
+def ssh_lab_pins(doc: dict) -> list[str]:
+    return [u for u in _urls(doc) if LAB_SSH.search(u)]
 
 
-def test_private_lab_repos_are_pinned_over_ssh():
-    bad = https_private_pins(tomllib.loads(PYPROJECT.read_text()))
-    assert not bad, f"pin these private lab repos as ssh://git@github.com/harvard-visionlab/<repo>.git: {bad}"
+def test_lab_repos_are_pinned_over_https():
+    bad = ssh_lab_pins(tomllib.loads(PYPROJECT.read_text()))
+    assert not bad, f"pin these lab repos as https://github.com/harvard-visionlab/<repo>.git: {bad}"
 
 
-def test_the_check_catches_https_private_pins_in_every_place():
+def test_the_check_catches_ssh_pins_in_every_place():
     doc = {
-        "project": {"dependencies": ["x @ git+https://github.com/harvard-visionlab/model-atoms.git@v0.1.0",
+        "project": {"dependencies": ["x @ git+ssh://git@github.com/harvard-visionlab/model-atoms.git@v0.1.0",
                                      "y @ git+https://github.com/harvard-visionlab/datasets.git@v0.19.1"],
-                    "optional-dependencies": {"e": ["z @ git+https://github.com/harvard-visionlab/model-genesis@main"]}},
-        "tool": {"uv": {"sources": {"a": {"git": "https://github.com/harvard-visionlab/model-evals.git", "tag": "v0.2.0"},
-                                    "b": {"git": "ssh://git@github.com/harvard-visionlab/model-rearing.git"},
+                    "optional-dependencies": {"e": ["z @ git+ssh://git@github.com/harvard-visionlab/model-genesis@main"]}},
+        "tool": {"uv": {"sources": {"a": {"git": "git@github.com:harvard-visionlab/model-evals.git", "tag": "v0.2.0"},
                                     "c": {"git": "https://github.com/harvard-visionlab/slipstream.git"}}}},
     }  # fmt: skip
-    bad = https_private_pins(doc)
-    assert [LAB_HTTPS.search(u)["repo"] for u in bad] == ["model-atoms", "model-genesis", "model-evals"]
+    assert len(ssh_lab_pins(doc)) == 3

@@ -43,7 +43,7 @@ anagrams = "visionlab.evals.anagrams.plugin:EVAL"
 lab = ["visionlab-model-evals"]
 # lab members: load models via visionlab.models
 # [cornet] pulls dicarlolab/CORnet (GPL-3.0) as a runtime dependency for the CORnet cards; [clip] for open_clip towers
-models = ["visionlab-models[cornet,clip]@git+ssh://git@github.com/harvard-visionlab/models.git@9540bb3206e883199b134a9312e2124d98ec5862"]
+models = ["visionlab-models[cornet,clip]@git+https://github.com/harvard-visionlab/models.git@9540bb3206e883199b134a9312e2124d98ec5862"]
 # phase-1 validation sweep (timm heads, SigLIP zero-shot via open_clip)
 # timm pinned to visionlab.models' validated range; transformers/sentencepiece/protobuf for the SigLIP2 tokenizer
 validation = ["timm>=1.0.29,<1.0.30", "open_clip_torch>=2.24", "transformers>=4.40", "sentencepiece", "protobuf"]
@@ -62,7 +62,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-visionlab-model-evals = { git = "ssh://git@github.com/harvard-visionlab/model-evals.git", rev = "90f2c0700d8209fc5069b927f915a56ffbab9391" }  # -> v0.2.0 with models @embedding
+visionlab-model-evals = { git = "https://github.com/harvard-visionlab/model-evals.git", rev = "90f2c0700d8209fc5069b927f915a56ffbab9391" }  # -> v0.2.0 with models @embedding
 torch = [
     { index = "pytorch-cu126", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
     { index = "pytorch-cpu", marker = "sys_platform != 'linux' or platform_machine != 'x86_64'" },
